@@ -40,7 +40,7 @@ async function runE2ETest() {
 
   // Step 1: Environment Check
   console.log('📋 Step 1: Checking Environment Variables...');
-  const requiredEnvVars = ['SEEDSTR_API_KEY', 'AGENT_ID', 'OPENROUTER_API_KEY'];
+  const requiredEnvVars = ['SEEDSTR_API_KEY', 'SEEDSTR_AGENT_ID', 'OPENROUTER_API_KEY'];
   const missingVars = requiredEnvVars.filter(v => !process.env[v]);
   
   if (missingVars.length > 0) {
