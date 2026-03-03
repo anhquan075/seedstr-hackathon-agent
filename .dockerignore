@@ -1,0 +1,55 @@
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Next.js (not needed for agent)
+.next
+out
+.vercel
+
+# Development
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Editor
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+!README.md
+docs
+plans
+
+# Test
+test
+*.test.ts
+*.test.js
+coverage
+
+# Build artifacts (will be rebuilt in container)
+dist
+build
+
+# Logs
+logs
+*.log
+
+# Temporary files
+tmp
+temp
+.cache

@@ -1,0 +1,1 @@
+{"version":3,"file":"design-system.d.ts","sourceRoot":"","sources":["../../src/agent/design-system.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,KAAK,YAAY,EAAE,MAAM,YAAY,CAAC;AAE/C;;;GAGG;AAEH,eAAO,MAAM,aAAa,EAAE,MAAM,CAAC,MAAM,EAAE,YAAY,CA+gBtD,CAAC;AAEF,wBAAgB,eAAe,CAAC,IAAI,CAAC,EAAE,MAAM,GAAG,YAAY,CAE3D;AAED,wBAAgB,oBAAoB,IAAI,MAAM,EAAE,CAE/C"}

@@ -1,0 +1,14 @@
+# Railway Configuration for Seedstr Agent
+
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "npm run agent:start"
+restartPolicyType = "always"
+restartPolicyMaxRetries = 10
+
+# Health check configuration
+healthcheckPath = "/"
+healthcheckTimeout = 100

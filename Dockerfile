@@ -20,6 +20,9 @@ COPY src/agent ./src/agent
 # Build TypeScript
 RUN npm run agent:build
 
+# Verify build output
+RUN ls -la /app && ls -la /app/dist || echo 'dist not found'
+
 # Stage 2: Production runtime
 FROM node:20-alpine AS runner
 
