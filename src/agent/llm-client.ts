@@ -38,7 +38,7 @@ export class LLMClient {
   private readonly MODEL_TIERS = {
     premium: 'anthropic/claude-3.5-sonnet',        // High quality, $3-15/job
     fast: 'meta-llama/llama-3.3-70b-instruct',     // Fast tool calling, $0.5-2/job
-    free: 'google/gemini-2.0-flash-exp:free',      // Free tier, $0/job
+    free: 'google/gemini-2.5-flash-lite',          // Free tier, $0/job
   };
 
   constructor(config: {
