@@ -39,3 +39,23 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent build output
+dist/
+
+# ui build output
+ui/dist/
+ui/build/
+
+# competitor repos (analysis only)
+seedstr-hackathon/
+seedstr_nebulas_agent/
+
+# logs
+*.log
+
+# OS files
+**/.DS_Store
+
+# Windows batch files
+*.bat
