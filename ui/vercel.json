@@ -1,6 +1,8 @@
 {
   "rewrites": [
-    { "source": "/api/sse", "destination": "https://seedstr-agent.railway.app/api/sse" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/api/sse",
+      "destination": "https://seedstr-hackathon-agent.railway.app/api/sse"
+    }
   ]
 }

@@ -1,119 +1,109 @@
-import { motion } from 'framer-motion';
-import { Code2, Cpu, Globe, Loader2, Send, CheckCircle2, XCircle } from 'lucide-react';
-import { JobState } from '../types/events';
-import { formatCurrency } from '../utils/formatters';
+import React, { useEffect, useState } from 'react';
+import { CurrentJobState } from '../types/events';
+import { formatCurrency, formatDuration } from '../utils/formatters';
+import { Search, Cpu, Wrench, UploadCloud, CheckCircle2, XCircle, Clock } from 'lucide-react';
 
 interface CurrentJobProps {
-  job: JobState | null;
+  job: CurrentJobState | null;
 }
 
-const STAGES = [
-  { id: 'fetching', label: 'Fetching', icon: Globe },
-  { id: 'generating', label: 'Generating', icon: Cpu },
-  { id: 'building', label: 'Building', icon: Code2 },
-  { id: 'submitting', label: 'Submitting', icon: Send },
-  { id: 'complete', label: 'Complete', icon: CheckCircle2 },
-];
+const STAGES = ['fetching', 'generating', 'building', 'submitting', 'complete'];
 
 export function CurrentJob({ job }: CurrentJobProps) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!job || job.stage === 'complete' || job.stage === 'failed') return;
+    
+    const interval = setInterval(() => {
+      setElapsed(Date.now() - job.startTime);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [job]);
+
   if (!job) {
     return (
-      <div className="bg-surface border border-border rounded-xl p-8 shadow-lg flex flex-col items-center justify-center min-h-[300px] text-center">
-        <div className="w-16 h-16 rounded-full bg-background border border-border flex items-center justify-center mb-4">
-          <Loader2 className="w-8 h-8 text-muted animate-spin" />
-        </div>
-        <h3 className="text-xl font-heading font-semibold text-text mb-2">Waiting for Jobs</h3>
-        <p className="text-muted max-w-md">
-          The agent is currently polling the network for new opportunities. 
-          New jobs will appear here automatically.
-        </p>
+      <div className="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg flex flex-col items-center justify-center h-48 text-gray-400">
+        <Search className="w-8 h-8 mb-2 opacity-50" />
+        <p>Waiting for next job...</p>
       </div>
     );
   }
 
-  const currentStageIndex = STAGES.findIndex(s => s.id === job.stage);
+  const currentStageIndex = STAGES.indexOf(job.stage);
   const isFailed = job.stage === 'failed';
 
   return (
-    <div className="bg-surface border border-border rounded-xl p-6 shadow-lg">
-      <div className="flex items-center justify-between mb-6">
+    <div className="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg">
+      <div className="flex justify-between items-start mb-6">
         <div>
-          <h2 className="text-xl font-heading font-semibold text-text flex items-center gap-2">
-            Active Job
-            <span className="text-xs font-mono bg-background px-2 py-1 rounded text-muted border border-border">
+          <h2 className="text-xl font-semibold text-gray-100 flex items-center gap-2">
+            Current Job
+            <span className="text-xs font-mono bg-gray-700 px-2 py-1 rounded text-gray-300">
               {job.id.substring(0, 8)}
             </span>
           </h2>
+          <p className="text-gray-400 mt-1 max-w-2xl truncate">{job.prompt}</p>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold text-success">
-            {formatCurrency(job.budget)}
+          <div className="text-2xl font-bold text-yellow-400">{formatCurrency(job.budget)}</div>
+          <div className="text-sm text-gray-400 flex items-center justify-end gap-1 mt-1">
+            <Clock className="w-3 h-3" />
+            {formatDuration(job.stage === 'complete' || job.stage === 'failed' ? job.progress : elapsed)}
           </div>
-          <div className="text-sm text-muted">Budget</div>
         </div>
       </div>
 
-      <div className="bg-background rounded-lg p-4 border border-border/50 mb-8">
-        <p className="text-text/90 text-sm leading-relaxed line-clamp-2 italic">
-          "{job.prompt}"
-        </p>
-      </div>
-
-      <div className="relative">
-        {/* Progress Bar Background */}
-        <div className="absolute top-5 left-0 w-full h-1 bg-background rounded-full overflow-hidden">
-          <motion.div 
-            className={`h-full ${isFailed ? 'bg-error' : 'bg-primary'}`}
-            initial={{ width: 0 }}
-            animate={{ width: `${job.progress}%` }}
-            transition={{ duration: 0.5 }}
+      <div className="relative pt-8 pb-4">
+        {/* Progress Line */}
+        <div className="absolute top-12 left-0 w-full h-1 bg-gray-700 rounded-full overflow-hidden">
+          <div 
+            className={`h-full transition-all duration-500 ${isFailed ? 'bg-red-500' : 'bg-blue-500'}`}
+            style={{ 
+              width: isFailed ? '100%' : `${Math.max(5, (currentStageIndex / (STAGES.length - 1)) * 100)}%` 
+            }}
           />
         </div>
 
         {/* Stages */}
         <div className="relative flex justify-between">
-          {STAGES.map((stage, index) => {
-            const isPast = index < currentStageIndex || job.stage === 'complete';
-            const isCurrent = index === currentStageIndex && !isFailed;
+          {[
+            { id: 'fetching', icon: Search, label: 'Fetching' },
+            { id: 'generating', icon: Cpu, label: 'Generating' },
+            { id: 'building', icon: Wrench, label: 'Building' },
+            { id: 'submitting', icon: UploadCloud, label: 'Submitting' },
+            { id: 'complete', icon: CheckCircle2, label: 'Complete' }
+          ].map((stage, index) => {
             const Icon = isFailed && index === currentStageIndex ? XCircle : stage.icon;
+            const isActive = index === currentStageIndex;
+            const isPast = index < currentStageIndex || (job.stage === 'complete' && index === STAGES.length - 1);
+            
+            let colorClass = 'text-gray-500 bg-gray-800 border-gray-600';
+            if (isFailed && isActive) {
+              colorClass = 'text-red-400 bg-red-900/30 border-red-500';
+            } else if (isActive) {
+              colorClass = 'text-blue-400 bg-blue-900/30 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.5)]';
+            } else if (isPast) {
+              colorClass = 'text-green-400 bg-gray-800 border-green-500';
+            }
 
             return (
-              <div key={stage.id} className="flex flex-col items-center gap-2 z-10">
-                <motion.div 
-                  className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors duration-300 ${
-                    isFailed && index === currentStageIndex
-                      ? 'bg-error/20 border-error text-error'
-                      : isPast
-                      ? 'bg-primary border-primary text-white'
-                      : isCurrent
-                      ? 'bg-surface border-primary text-primary shadow-[0_0_15px_rgba(15,118,110,0.5)]'
-                      : 'bg-background border-border text-muted'
-                  }`}
-                  animate={isCurrent ? { scale: [1, 1.1, 1] } : {}}
-                  transition={{ repeat: Infinity, duration: 2 }}
-                >
+              <div key={stage.id} className="flex flex-col items-center">
+                <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center z-10 transition-colors duration-300 ${colorClass}`}>
                   <Icon className="w-5 h-5" />
-                </motion.div>
-                <span className={`text-xs font-medium ${
-                  isFailed && index === currentStageIndex
-                    ? 'text-error'
-                    : isCurrent || isPast 
-                    ? 'text-text' 
-                    : 'text-muted'
-                }`}>
+                </div>
+                <span className={`text-xs mt-2 font-medium ${isActive ? 'text-gray-200' : 'text-gray-500'}`}>
                   {stage.label}
                 </span>
+                {isActive && job.stage === 'building' && (
+                  <span className="text-xs text-blue-400 mt-1">{job.progress}%</span>
+                )}
               </div>
             );
           })}
         </div>
       </div>
-
-      {job.error && (
-        <div className="mt-6 p-4 bg-error/10 border border-error/20 rounded-lg text-error text-sm">
-          <strong>Error:</strong> {job.error}
-        </div>
-      )}
     </div>
   );
 }

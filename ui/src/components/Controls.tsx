@@ -1,60 +1,53 @@
-import { Play, Pause, Square, RefreshCw, Settings } from 'lucide-react';
-import { AgentStats } from '../types/events';
+import React from 'react';
+import { PlayCircle, PauseCircle, StopCircle, Settings, RefreshCw } from 'lucide-react';
 
 interface ControlsProps {
-  stats: AgentStats;
+  isPaused: boolean;
   onTogglePause: () => void;
   onStop: () => void;
   onRefresh: () => void;
 }
 
-export function Controls({ stats, onTogglePause, onStop, onRefresh }: ControlsProps) {
+export function Controls({ isPaused, onTogglePause, onStop, onRefresh }: ControlsProps) {
   return (
-    <div className="bg-surface border border-border rounded-xl p-6 shadow-lg">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-heading font-semibold text-text flex items-center gap-2">
-          <Settings className="w-5 h-5 text-primary" />
-          Command Center
-        </h2>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
+    <div className="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg">
+      <div className="flex flex-wrap items-center gap-4">
         <button
           onClick={onTogglePause}
-          className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-all cursor-pointer ${
-            stats.isPaused
-              ? 'bg-success/20 text-success hover:bg-success/30 border border-success/30'
-              : 'bg-warning/20 text-warning hover:bg-warning/30 border border-warning/30'
+          className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
+            isPaused 
+              ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+              : 'bg-yellow-600 hover:bg-yellow-700 text-white'
           }`}
         >
-          {stats.isPaused ? (
-            <>
-              <Play className="w-5 h-5" />
-              Resume Polling
-            </>
-          ) : (
-            <>
-              <Pause className="w-5 h-5" />
-              Pause Polling
-            </>
-          )}
+          {isPaused ? <PlayCircle className="w-5 h-5" /> : <PauseCircle className="w-5 h-5" />}
+          {isPaused ? 'Resume' : 'Pause'}
         </button>
-
+        
         <button
           onClick={onStop}
-          className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium bg-error/10 text-error hover:bg-error/20 border border-error/30 transition-all cursor-pointer"
+          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
         >
-          <Square className="w-5 h-5" />
+          <StopCircle className="w-5 h-5" />
           Emergency Stop
         </button>
-
-        <button
-          onClick={onRefresh}
-          className="col-span-2 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium bg-background text-text hover:bg-surface border border-border transition-all cursor-pointer"
-        >
-          <RefreshCw className="w-5 h-5" />
-          Reconnect SSE
-        </button>
+        
+        <div className="flex-1 sm:flex-none flex justify-end gap-4 ml-auto">
+          <button
+            onClick={onRefresh}
+            className="p-3 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors"
+            title="Refresh Connection"
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
+          
+          <button
+            className="p-3 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors"
+            title="Settings"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
+        </div>
       </div>
     </div>
   );

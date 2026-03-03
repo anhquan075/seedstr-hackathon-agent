@@ -1,140 +1,114 @@
-import { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Terminal, Filter, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
 import { AgentEvent } from '../types/events';
 import { formatTimestamp } from '../utils/formatters';
+import { Terminal, Search, Filter } from 'lucide-react';
 
 interface EventLogProps {
   events: AgentEvent[];
-  onClear: () => void;
 }
 
-export function EventLog({ events, onClear }: EventLogProps) {
-  const [filter, setFilter] = useState<string>('all');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+type FilterType = 'all' | 'info' | 'success' | 'error';
 
-  const filteredEvents = useMemo(() => {
-    if (filter === 'all') return events;
-    if (filter === 'success') return events.filter(e => e.type === 'job_success');
-    if (filter === 'error') return events.filter(e => e.type === 'job_failed' || e.type === 'error');
-    if (filter === 'info') return events.filter(e => !['job_success', 'job_failed', 'error'].includes(e.type));
-    return events;
-  }, [events, filter]);
+export function EventLog({ events }: EventLogProps) {
+  const [filter, setFilter] = useState<FilterType>('all');
+  const [search, setSearch] = useState('');
+  const [autoScroll, setAutoScroll] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (autoScroll && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [events, autoScroll]);
 
   const getEventColor = (type: string) => {
-    if (type === 'job_success') return 'text-success border-success/20 bg-success/5';
-    if (type === 'job_failed' || type === 'error') return 'text-error border-error/20 bg-error/5';
-    if (type === 'job_found') return 'text-secondary border-secondary/20 bg-secondary/5';
-    return 'text-primary border-primary/20 bg-primary/5';
+    if (type.includes('success')) return 'text-green-400';
+    if (type.includes('error') || type.includes('failed')) return 'text-red-400';
+    if (type.includes('generating') || type.includes('building')) return 'text-yellow-400';
+    return 'text-blue-400';
   };
 
-  const getEventIcon = (type: string) => {
-    if (type === 'job_success') return '✓';
-    if (type === 'job_failed' || type === 'error') return '✗';
-    if (type === 'job_found') return '★';
-    return 'ℹ';
+  const getEventCategory = (type: string): FilterType => {
+    if (type.includes('success')) return 'success';
+    if (type.includes('error') || type.includes('failed')) return 'error';
+    return 'info';
   };
+
+  const filteredEvents = events.filter(event => {
+    if (filter !== 'all' && getEventCategory(event.type) !== filter) return false;
+    if (search && !JSON.stringify(event).toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
 
   return (
-    <div className="bg-surface border border-border rounded-xl shadow-lg flex flex-col h-[500px]">
-      <div className="p-4 border-b border-border flex items-center justify-between bg-surface/50 rounded-t-xl">
-        <h2 className="text-lg font-heading font-semibold text-text flex items-center gap-2">
-          <Terminal className="w-5 h-5 text-primary" />
-          Neural Log
+    <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-lg flex flex-col h-[400px]">
+      <div className="p-4 border-b border-gray-700 flex flex-wrap items-center justify-between gap-4">
+        <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-100">
+          <Terminal className="w-5 h-5 text-blue-400" />
+          Event Log
         </h2>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-background rounded-lg p-1 border border-border">
-            <Filter className="w-4 h-4 text-muted ml-2" />
-            <select 
-              className="bg-transparent text-sm text-text outline-none border-none focus:ring-0 cursor-pointer py-1 pr-2"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            >
-              <option value="all" className="bg-surface">All Events</option>
-              <option value="info" className="bg-surface">Info</option>
-              <option value="success" className="bg-surface">Success</option>
-              <option value="error" className="bg-surface">Errors</option>
-            </select>
+        
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input 
+              type="text" 
+              placeholder="Search logs..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="bg-gray-900 border border-gray-700 rounded-lg pl-9 pr-4 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500 w-48"
+            />
           </div>
-          <button 
-            onClick={onClear}
-            className="p-2 text-muted hover:text-error hover:bg-error/10 rounded-lg transition-colors cursor-pointer"
-            title="Clear Log"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          
+          <div className="flex bg-gray-900 rounded-lg p-1 border border-gray-700">
+            {(['all', 'info', 'success', 'error'] as FilterType[]).map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-3 py-1 text-xs font-medium rounded-md capitalize transition-colors ${
+                  filter === f 
+                    ? 'bg-gray-700 text-white' 
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+          
+          <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+            <input 
+              type="checkbox" 
+              checked={autoScroll}
+              onChange={(e) => setAutoScroll(e.target.checked)}
+              className="rounded border-gray-600 bg-gray-900 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-800"
+            />
+            Auto-scroll
+          </label>
         </div>
       </div>
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-        <AnimatePresence initial={false}>
-          {filteredEvents.length === 0 ? (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center text-muted py-8"
-            >
-              No events found
-            </motion.div>
-          ) : (
-            filteredEvents.map((event, index) => {
-              const eventId = `${event.timestamp}-${index}`;
-              const isExpanded = expandedId === eventId;
-              const colorClass = getEventColor(event.type);
-
-              return (
-                <motion.div
-                  key={eventId}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                  className={`border rounded-lg overflow-hidden ${colorClass}`}
-                >
-                  <div 
-                    className="p-3 flex items-start gap-3 cursor-pointer hover:bg-white/5 transition-colors"
-                    onClick={() => setExpandedId(isExpanded ? null : eventId)}
-                  >
-                    <div className="font-mono text-xs opacity-70 mt-0.5 whitespace-nowrap">
-                      [{formatTimestamp(event.timestamp)}]
-                    </div>
-                    <div className="font-mono text-sm font-bold w-4 text-center">
-                      {getEventIcon(event.type)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium text-sm capitalize">
-                        {event.type.replace('_', ' ')}
-                      </div>
-                      {event.type === 'job_found' && 'data' in event && (
-                        <div className="text-xs opacity-80 mt-1 truncate max-w-md">
-                          {event.data.prompt}
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-muted">
-                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </div>
-                  </div>
-                  
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="border-t border-current/10 bg-black/20"
-                      >
-                        <pre className="p-3 text-xs font-mono overflow-x-auto text-text/80">
-                          {JSON.stringify(event.data, null, 2)}
-                        </pre>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
-              );
-            })
-          )}
-        </AnimatePresence>
+      
+      <div 
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto p-4 font-mono text-sm space-y-2"
+      >
+        {filteredEvents.length === 0 ? (
+          <div className="text-gray-500 text-center mt-8">No events found</div>
+        ) : (
+          filteredEvents.map((event, i) => (
+            <div key={`${event.timestamp}-${i}`} className="flex items-start gap-3 hover:bg-gray-700/30 p-1 rounded">
+              <span className="text-gray-500 shrink-0">
+                [{formatTimestamp(event.timestamp)}]
+              </span>
+              <span className={`font-semibold shrink-0 ${getEventColor(event.type)}`}>
+                {event.type.padEnd(15)}
+              </span>
+              <span className="text-gray-300 break-all">
+                {JSON.stringify(event.data)}
+              </span>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

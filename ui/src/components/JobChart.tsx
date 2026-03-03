@@ -1,9 +1,7 @@
 import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { AgentEvent } from '../types/events';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { AgentEvent } from '../types/events';
-import { formatTimestamp } from '../utils/formatters';
+
 
 interface JobChartProps {
   events: AgentEvent[];
