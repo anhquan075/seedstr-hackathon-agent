@@ -28,6 +28,8 @@ export class SSEServer {
   private readonly port: number;
 
   constructor(port = 3001) {
+    // Use Railway's PORT env var, fallback to provided port or 3001
+    this.port = process.env.PORT ? parseInt(process.env.PORT, 10) : port;
     this.port = port;
   }
 
@@ -92,8 +94,9 @@ export class SSEServer {
       }
     });
 
-    this.server.listen(this.port, () => {
-      console.log(`[SSE] Server listening on http://localhost:${this.port}/events`);
+    // Listen on 0.0.0.0 (all interfaces) for Railway compatibility
+    this.server.listen(this.port, '0.0.0.0', () => {
+      console.log(`[SSE] Server listening on http://0.0.0.0:${this.port}/events`);
     });
   }
 

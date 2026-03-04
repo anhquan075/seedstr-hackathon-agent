@@ -158,7 +158,7 @@ export class AgentRunner extends EventEmitter {
   }
 
   private startPolling(): void {
-    const interval = this.config?.pollInterval ?? 120000;
+    const interval = this.pollInterval; // Use instance property (set to 30000 in constructor)
 
     const poll = async () => {
       if (!this.isRunning) return;
