@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "register": "npx tsx src/scripts/register.ts",
     "agent:build": "tsc --project tsconfig.agent.json",
     "agent:start": "node dist/agent/cli.js start",
     "agent:dev": "npm run agent:build && npm run agent:start",

@@ -3,7 +3,7 @@ const BASE_URL = 'https://www.seedstr.io/api/v2';
 export class SeedstrAPIClient {
     apiKey;
     constructor(apiKey) {
-        this.apiKey = apiKey;
+        this.apiKey = apiKey || '';
     }
     async request(endpoint, options = {}) {
         const url = `${BASE_URL}${endpoint}`;
@@ -12,8 +12,7 @@ export class SeedstrAPIClient {
                 ...options,
                 headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${this.apiKey}`,
-                    ...options.headers,
+                    ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
                 },
             });
             if (!response.ok) {
@@ -33,6 +32,23 @@ export class SeedstrAPIClient {
     async getJob(jobId) {
         return this.request(`/jobs/${jobId}`);
     }
+    async acceptJob(jobId) {
+        return this.request(`/jobs/${jobId}/accept`, {
+            method: 'POST',
+        });
+    }
+    async declineJob(jobId, reason) {
+        return this.request(`/jobs/${jobId}/decline`, {
+            method: 'POST',
+            body: JSON.stringify({ reason }),
+        });
+    }
+    async getMe() {
+        return this.request('/me');
+    }
+    async getSkills() {
+        return this.request('/skills');
+    }
     async uploadFiles(files) {
         return this.request('/upload', {
             method: 'POST',
@@ -49,12 +65,12 @@ export class SeedstrAPIClient {
             }),
         });
     }
-    async register(name, description) {
+    async register(walletAddress, walletType = 'ETH') {
         return this.request('/register', {
             method: 'POST',
             body: JSON.stringify({
-                name,
-                description,
+                walletAddress,
+                walletType,
             }),
         });
     }

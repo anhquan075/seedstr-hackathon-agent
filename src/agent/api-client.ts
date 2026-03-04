@@ -12,10 +12,9 @@ const BASE_URL = 'https://www.seedstr.io/api/v2';
 export class SeedstrAPIClient {
   private apiKey: string;
 
-  constructor(apiKey: string) {
-    this.apiKey = apiKey;
+  constructor(apiKey?: string) {
+    this.apiKey = apiKey || '';
   }
-
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -27,8 +26,7 @@ export class SeedstrAPIClient {
         ...options,
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
-          ...options.headers,
+          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
         },
       });
 
@@ -52,6 +50,27 @@ export class SeedstrAPIClient {
 
   async getJob(jobId: string): Promise<SeedstrJob> {
     return this.request<SeedstrJob>(`/jobs/${jobId}`);
+  }
+
+  async acceptJob(jobId: string): Promise<{ success: boolean; acceptance: any }> {
+    return this.request<{ success: boolean; acceptance: any }>(`/jobs/${jobId}/accept`, {
+      method: 'POST',
+    });
+  }
+
+  async declineJob(jobId: string, reason?: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/jobs/${jobId}/decline`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async getMe(): Promise<any> {
+    return this.request<any>('/me');
+  }
+
+  async getSkills(): Promise<string[]> {
+    return this.request<string[]>('/skills');
   }
 
   async uploadFiles(
@@ -79,14 +98,14 @@ export class SeedstrAPIClient {
   }
 
   async register(
-    name: string,
-    description: string
-  ): Promise<{ success: boolean; agentId: string }> {
+    walletAddress: string,
+    walletType: 'ETH' | 'SOL' = 'ETH'
+  ): Promise<{ success: boolean; apiKey: string; agentId: string }> {
     return this.request('/register', {
       method: 'POST',
       body: JSON.stringify({
-        name,
-        description,
+        walletAddress,
+        walletType,
       }),
     });
   }

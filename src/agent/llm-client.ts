@@ -37,9 +37,9 @@ export class LLMClient {
 
   // Model tiers for smart routing
   private readonly MODEL_TIERS = {
-    premium: 'anthropic/claude-3.5-sonnet',        // High quality, $3-15/job
-    fast: 'meta-llama/llama-3.3-70b-instruct',     // Fast tool calling, $0.5-2/job
-    free: 'google/gemini-2.5-flash-lite',          // Free tier, $0/job
+    premium: 'anthropic/claude-3.5-sonnet',        // High quality, reasoning
+    fast: 'google/gemini-2.0-flash-lite-preview-02-05:free', // Ultra-fast, free
+    balanced: 'meta-llama/llama-3.3-70b-instruct', // Good balance
   };
 
   constructor(config: {
@@ -49,8 +49,8 @@ export class LLMClient {
     this.openrouterApiKey = config.openrouterApiKey;
     // Default fallback chain: fast → smart → ultra-smart
     this.models = config.models || [
-      this.MODEL_TIERS.free,
       this.MODEL_TIERS.fast,
+      this.MODEL_TIERS.balanced,
       this.MODEL_TIERS.premium,
     ];
   }
@@ -106,28 +106,33 @@ export class LLMClient {
     const complexity = prompt ? this.assessComplexity(prompt) : 'medium';
     
     // High budget jobs deserve premium quality
+    // High budget ($5+): Use premium model for everything
     if (budget >= 5) {
       logger.info(`High budget ($${budget}), complexity: ${complexity}, using premium model`);
       return this.MODEL_TIERS.premium;
     }
     
-    // Medium budget: route by complexity
+    // Medium budget ($2-$5):
     if (budget >= 2) {
+      // Complex jobs get premium model
       if (complexity === 'complex') {
         logger.info(`Medium budget ($${budget}), complex job, using premium model`);
         return this.MODEL_TIERS.premium;
       }
-      logger.info(`Medium budget ($${budget}), ${complexity} job, using fast model`);
-      return this.MODEL_TIERS.fast;
+      // Medium/Simple jobs use balanced model
+      logger.info(`Medium budget ($${budget}), ${complexity} job, using balanced model`);
+      return this.MODEL_TIERS.balanced;
     }
     
-    // Low budget: route by complexity
-    if (complexity === 'simple') {
-      logger.info(`Low budget ($${budget}), simple job, using free model`);
-      return this.MODEL_TIERS.free;
+    // Low budget (<$2): Prioritize speed and cost
+    if (complexity === 'complex') {
+      // Even low budget complex jobs might need balanced model to succeed
+      logger.info(`Low budget ($${budget}), complex job, using balanced model`);
+      return this.MODEL_TIERS.balanced;
     }
     
-    logger.info(`Low budget ($${budget}), ${complexity} job, using fast model`);
+    // Default to fast/free model for low budget simple/medium jobs
+    logger.info(`Low budget ($${budget}), ${complexity} job, using fast/free model`);
     return this.MODEL_TIERS.fast;
   }
 

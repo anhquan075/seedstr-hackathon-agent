@@ -10,7 +10,7 @@ export const uiTemplates = {
 - Social proof section (logos or testimonials)
 - Footer with links
 Use semantic HTML5, mobile-responsive CSS, smooth scroll behavior.`,
-    suggestedDesignSystems: ['glassmorphism', 'gradient-heavy', 'material'],
+    suggestedDesignSystems: ['glassmorphism', 'gradient-heavy', 'material', 'luxury', 'corporate'],
   },
   'landing-feature-showcase': {
     name: 'Feature Showcase Landing Page',
@@ -36,7 +36,7 @@ Ensure high contrast and clear typography.`,
 - FAQ accordion section
 - Trust badges/logos
 Make pricing cards stand out with shadows or borders.`,
-    suggestedDesignSystems: ['brutalism', 'material', 'glassmorphism'],
+    suggestedDesignSystems: ['brutalism', 'material', 'glassmorphism', 'saas-dark', 'corporate'],
   },
   'landing-testimonial-heavy': {
     name: 'Testimonial-Heavy Landing Page',
@@ -62,7 +62,7 @@ Use warm colors and rounded corners for a friendly feel.`,
 - Secondary chart areas (pie/doughnut placeholders)
 - Recent activity table
 Use a clean, data-focused layout with subtle borders.`,
-    suggestedDesignSystems: ['material', 'minimalist', 'glassmorphism'],
+    suggestedDesignSystems: ['material', 'minimalist', 'glassmorphism', 'saas-dark', 'corporate'],
   },
   'dashboard-admin-panel': {
     name: 'Admin Panel',
@@ -88,7 +88,7 @@ Ensure high usability and clear visual hierarchy.`,
 - Quick add button for new contacts/deals
 - Task reminder list
 Use distinct colors for different pipeline stages.`,
-    suggestedDesignSystems: ['neumorphism', 'material', 'retro'],
+    suggestedDesignSystems: ['neumorphism', 'material', 'retro', 'corporate'],
   },
   'dashboard-project-management': {
     name: 'Project Management Dashboard',
@@ -127,7 +127,7 @@ Ensure images maintain aspect ratio.`,
 - Expandable sections for Description, Details, Shipping
 - "Related Products" carousel at the bottom
 Focus on high-quality imagery and clear purchasing actions.`,
-    suggestedDesignSystems: ['minimalist', 'material', 'retro'],
+    suggestedDesignSystems: ['minimalist', 'material', 'retro', 'luxury', 'nature'],
   },
   'ecommerce-cart': {
     name: 'Shopping Cart',
@@ -168,7 +168,7 @@ Ensure form fields are large and easy to tap on mobile.`,
 - About me section with photo
 - Contact form for bookings
 Let the images take center stage with minimal UI chrome.`,
-    suggestedDesignSystems: ['minimalist', 'brutalism', 'retro'],
+    suggestedDesignSystems: ['minimalist', 'brutalism', 'retro', 'nature', 'luxury'],
   },
   'portfolio-developer': {
     name: 'Developer Portfolio',
@@ -248,7 +248,7 @@ Make it feel secure and trustworthy.`,
 - Emoji feedback selector
 - "Next" and "Previous" navigation buttons
 Focus on micro-interactions and making the form feel engaging.`,
-    suggestedDesignSystems: ['gradient-heavy', 'retro', 'material'],
+    suggestedDesignSystems: ['gradient-heavy', 'retro', 'material', 'playful'],
   },
   'marketing-waitlist': {
     name: 'Waitlist Page',

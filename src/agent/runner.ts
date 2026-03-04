@@ -12,6 +12,9 @@ import {
   finalizeProjectTool,
   generateImageTool,
   httpRequestTool,
+  generateQrCodeTool,
+  csvAnalysisTool,
+  textProcessingTool,
 } from './tools/index.js';
 import { setActiveProjectBuilder } from './tools/project-tools.js';
 import {
@@ -41,11 +44,11 @@ export class AgentRunner extends EventEmitter {
   private activeJobs: Map<string, Promise<void>> = new Map();
   private readonly MAX_CONCURRENT_JOBS = 3;
   private sseServer: SSEServer;
-  constructor(config: AgentRunnerConfig) {
+  constructor(config: AgentRunnerConfig, apiClient?: SeedstrAPIClient) {
     super();
     this.config = config; // FIX: Assign config to instance property for later reference
     this.sseServer = new SSEServer(config.ssePort ?? 3001);
-    this.apiClient = new SeedstrAPIClient(config.seedstrApiKey);
+    this.apiClient = apiClient || new SeedstrAPIClient(config.seedstrApiKey);
     this.llmClient = new LLMClient({
       openrouterApiKey: config.openrouterApiKey,
       models: config.models,
@@ -228,6 +231,22 @@ export class AgentRunner extends EventEmitter {
     });
 
     try {
+      // Handle SWARM jobs
+      if (job.jobType === 'SWARM') {
+        logger.info(`Accepting SWARM job ${job.id}`);
+        try {
+          await this.apiClient.acceptJob(job.id);
+          logger.info(`Successfully accepted SWARM job ${job.id}`);
+        } catch (error: any) {
+          if (error.message.includes('409')) {
+            logger.warn(`Job ${job.id} already accepted or full, skipping`);
+            config.addProcessedJob(job.id);
+            return;
+          }
+          throw error;
+        }
+      }
+
       // Create project builder
       const projectBuilder = new ProjectBuilder(job.id);
       setActiveProjectBuilder(projectBuilder);
@@ -243,6 +262,9 @@ export class AgentRunner extends EventEmitter {
         finalize_project: finalizeProjectTool,
         generate_image: generateImageTool,
         http_request: httpRequestTool,
+        generate_qr: generateQrCodeTool,
+        csv_analysis: csvAnalysisTool,
+        text_processing: textProcessingTool,
       };
 
       logger.info('Starting LLM generation');

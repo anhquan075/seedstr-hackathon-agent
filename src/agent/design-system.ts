@@ -532,6 +532,334 @@ export const designSystems: Record<string, DesignSystem> = {
       `,
     },
   },
+  corporate: {
+    name: 'corporate',
+    tokens: {
+      colors: {
+        primary: '#0f172a',
+        secondary: '#334155',
+        accent: '#2563eb',
+        background: '#f8fafc',
+        foreground: '#1e293b',
+        muted: '#64748b',
+      },
+      spacing: {
+        xs: '0.5rem',
+        sm: '1rem',
+        md: '1.5rem',
+        lg: '2.5rem',
+        xl: '4rem',
+      },
+      typography: {
+        fontFamily: "'Inter', system-ui, sans-serif",
+        fontSize: {
+          xs: '0.75rem',
+          sm: '0.875rem',
+          base: '1rem',
+          lg: '1.125rem',
+          xl: '1.25rem',
+          '2xl': '1.5rem',
+        },
+      },
+      radius: {
+        sm: '0.25rem',
+        md: '0.375rem',
+        lg: '0.5rem',
+        full: '9999px',
+      },
+    },
+    templates: {
+      card: `
+        <div style="
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 0.375rem;
+          padding: 1.5rem;
+          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        ">
+          {content}
+        </div>
+      `,
+      button: `
+        <button style="
+          background: #0f172a;
+          border: none;
+          border-radius: 0.375rem;
+          padding: 0.75rem 1.5rem;
+          color: white;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        ">
+          {label}
+        </button>
+      `,
+    },
+  },
+
+  nature: {
+    name: 'nature',
+    tokens: {
+      colors: {
+        primary: '#2d6a4f',
+        secondary: '#40916c',
+        accent: '#d8f3dc',
+        background: '#fdfcf5',
+        foreground: '#1b4332',
+        muted: '#95d5b2',
+      },
+      spacing: {
+        xs: '0.5rem',
+        sm: '1rem',
+        md: '1.5rem',
+        lg: '2.5rem',
+        xl: '4rem',
+      },
+      typography: {
+        fontFamily: "'Nunito', 'Quicksand', sans-serif",
+        fontSize: {
+          xs: '0.875rem',
+          sm: '1rem',
+          base: '1.125rem',
+          lg: '1.25rem',
+          xl: '1.5rem',
+          '2xl': '2rem',
+        },
+      },
+      radius: {
+        sm: '0.75rem',
+        md: '1.25rem',
+        lg: '2rem',
+        full: '9999px',
+      },
+    },
+    templates: {
+      card: `
+        <div style="
+          background: #ffffff;
+          border: 1px solid #d8f3dc;
+          border-radius: 1.25rem;
+          padding: 2rem;
+          box-shadow: 0 4px 20px rgba(45, 106, 79, 0.05);
+        ">
+          {content}
+        </div>
+      `,
+      button: `
+        <button style="
+          background: #2d6a4f;
+          border: none;
+          border-radius: 1rem;
+          padding: 0.75rem 2rem;
+          color: white;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 0 4px 6px rgba(45, 106, 79, 0.2);
+          transition: transform 0.2s;
+        ">
+          {label}
+        </button>
+      `,
+    },
+  },
+
+  luxury: {
+    name: 'luxury',
+    tokens: {
+      colors: {
+        primary: '#000000',
+        secondary: '#1a1a1a',
+        accent: '#d4af37',
+        background: '#ffffff',
+        foreground: '#000000',
+        muted: '#888888',
+      },
+      spacing: {
+        xs: '1rem',
+        sm: '1.5rem',
+        md: '2.5rem',
+        lg: '4rem',
+        xl: '6rem',
+      },
+      typography: {
+        fontFamily: "'Playfair Display', 'Didot', serif",
+        fontSize: {
+          xs: '0.75rem',
+          sm: '0.875rem',
+          base: '1rem',
+          lg: '1.25rem',
+          xl: '1.75rem',
+          '2xl': '2.5rem',
+        },
+      },
+      radius: {
+        sm: '0',
+        md: '0',
+        lg: '0',
+        full: '0',
+      },
+    },
+    templates: {
+      card: `
+        <div style="
+          background: #ffffff;
+          border: 1px solid #f0f0f0;
+          padding: 3rem;
+          border-top: 2px solid #d4af37;
+        ">
+          {content}
+        </div>
+      `,
+      button: `
+        <button style="
+          background: #000000;
+          border: 1px solid #d4af37;
+          padding: 1rem 3rem;
+          color: #d4af37;
+          font-family: 'Playfair Display', serif;
+          font-size: 0.9rem;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          cursor: pointer;
+          transition: all 0.3s;
+        ">
+          {label}
+        </button>
+      `,
+    },
+  },
+
+  playful: {
+    name: 'playful',
+    tokens: {
+      colors: {
+        primary: '#ff6b6b',
+        secondary: '#4ecdc4',
+        accent: '#ffe66d',
+        background: '#ffffff',
+        foreground: '#2d3436',
+        muted: '#b2bec3',
+      },
+      spacing: {
+        xs: '0.5rem',
+        sm: '1rem',
+        md: '1.5rem',
+        lg: '2rem',
+        xl: '3rem',
+      },
+      typography: {
+        fontFamily: "'Fredoka', 'Comic Neue', sans-serif",
+        fontSize: {
+          xs: '1rem',
+          sm: '1.125rem',
+          base: '1.25rem',
+          lg: '1.5rem',
+          xl: '2rem',
+          '2xl': '3rem',
+        },
+      },
+      radius: {
+        sm: '1rem',
+        md: '1.5rem',
+        lg: '2rem',
+        full: '9999px',
+      },
+    },
+    templates: {
+      card: `
+        <div style="
+          background: #ffffff;
+          border: 3px solid #2d3436;
+          border-radius: 1.5rem;
+          padding: 1.5rem;
+          box-shadow: 6px 6px 0 #ffe66d;
+        ">
+          {content}
+        </div>
+      `,
+      button: `
+        <button style="
+          background: #ff6b6b;
+          border: 3px solid #2d3436;
+          border-radius: 9999px;
+          padding: 0.75rem 2rem;
+          color: white;
+          font-weight: 700;
+          cursor: pointer;
+          box-shadow: 4px 4px 0 #2d3436;
+          transition: transform 0.1s;
+        ">
+          {label}
+        </button>
+      `,
+    },
+  },
+
+  'saas-dark': {
+    name: 'saas-dark',
+    tokens: {
+      colors: {
+        primary: '#ffffff',
+        secondary: '#888888',
+        accent: '#8b5cf6',
+        background: '#000000',
+        foreground: '#ffffff',
+        muted: '#444444',
+      },
+      spacing: {
+        xs: '0.5rem',
+        sm: '1rem',
+        md: '1.5rem',
+        lg: '3rem',
+        xl: '5rem',
+      },
+      typography: {
+        fontFamily: "'Inter', sans-serif",
+        fontSize: {
+          xs: '0.75rem',
+          sm: '0.875rem',
+          base: '1rem',
+          lg: '1.125rem',
+          xl: '1.5rem',
+          '2xl': '2rem',
+        },
+      },
+      radius: {
+        sm: '0.25rem',
+        md: '0.5rem',
+        lg: '0.75rem',
+        full: '9999px',
+      },
+    },
+    templates: {
+      card: `
+        <div style="
+          background: #111111;
+          border: 1px solid #333333;
+          border-radius: 0.5rem;
+          padding: 2rem;
+          box-shadow: 0 0 0 1px rgba(255,255,255,0.05);
+        ">
+          {content}
+        </div>
+      `,
+      button: `
+        <button style="
+          background: #ffffff;
+          border: none;
+          border-radius: 0.5rem;
+          padding: 0.75rem 1.5rem;
+          color: black;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        ">
+          {label}
+        </button>
+      `,
+    },
+  },
+
 };
 
 export function getDesignSystem(name?: string): DesignSystem {

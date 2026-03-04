@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { SeedstrAPIClient } from './api-client.js';
 export interface AgentRunnerConfig {
     seedstrApiKey: string;
     openrouterApiKey: string;
@@ -19,7 +20,7 @@ export declare class AgentRunner extends EventEmitter {
     private activeJobs;
     private readonly MAX_CONCURRENT_JOBS;
     private sseServer;
-    constructor(config: AgentRunnerConfig);
+    constructor(config: AgentRunnerConfig, apiClient?: SeedstrAPIClient);
     /**
      * Retry helper with exponential backoff
      */
