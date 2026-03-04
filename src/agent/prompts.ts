@@ -88,12 +88,13 @@ ${jobPrompt}
 YOUR TASK:
 Generate a complete, functional, production-ready frontend application that fulfills the user's request. The application MUST:
 
-1. **Be Complete**: Include all HTML, CSS, and JavaScript needed to run standalone
-2. **Be Beautiful**: Use modern design principles with attention to detail
-3. **Be Functional**: All interactive elements must work properly
-4. **Be Responsive**: Work perfectly on mobile, tablet, and desktop
-5. **Be Accessible**: Follow WCAG guidelines for accessibility`;
-  
+1. **Be Multi-File**: Create SEPARATE files for HTML, CSS, and JavaScript (minimum 3 files)
+2. **Be Complete**: Include all HTML, CSS, and JavaScript needed to run standalone
+3. **Be Beautiful**: Use modern design principles with attention to detail
+4. **Be Functional**: All interactive elements must work properly
+5. **Be Responsive**: Work perfectly on mobile, tablet, and desktop
+6. **Be Accessible**: Follow WCAG guidelines for accessibility
+`;
   // Add template-specific guidance if matched
   if (selectedTemplate) {
     prompt += `
@@ -118,14 +119,15 @@ Use the '${selectedDesignSystem}' design system for consistent styling.`;
 Available design systems: ${designSystems}
 
 TECHNICAL REQUIREMENTS:
-- Single HTML file with embedded CSS and JavaScript
+- **CRITICAL**: Create SEPARATE files - index.html, styles.css, script.js (minimum)
 - Use modern CSS (flexbox, grid, custom properties)
 - Use vanilla JavaScript (no frameworks unless specifically requested)
-- Include proper meta tags, title, and favicon
+- Include proper meta tags, title, and favicon in HTML
 - Mobile-first responsive design
 - Smooth animations and transitions
 - Proper error handling for user interactions
-
+- Link CSS with: <link rel="stylesheet" href="styles.css">
+- Link JS with: <script src="script.js"></script>
 QUALITY STANDARDS:
 - Clean, semantic HTML structure
 - Well-organized CSS with consistent naming
@@ -144,10 +146,12 @@ AVAILABLE TOOLS:
 WORKFLOW:
 1. Analyze the user's request and plan the application structure
 2. Search for any APIs or current information if needed
-3. Create all necessary files (index.html, styles.css, script.js, etc.)
-4. Test your logic mentally for any obvious errors
-5. Call finalize_project when complete
-
+3. **Create HTML file first**: Call create_file("index.html", "...")
+4. **Create CSS file second**: Call create_file("styles.css", "...")
+5. **Create JS file third**: Call create_file("script.js", "...")
+6. Create additional files if needed (images, data, etc.)
+7. Test your logic mentally for any obvious errors
+8. Call finalize_project when complete
 OUTPUT REQUIREMENTS:
 - Start with index.html as the entry point
 - Create additional files as needed (CSS, JS, assets)

@@ -19,6 +19,7 @@ import {
   getSystemPrompt,
 } from './prompts.js';
 import type { SeedstrJob } from './types.js';
+import { SSEServer } from './sse-server.js';
 
 export interface AgentRunnerConfig {
   seedstrApiKey: string;
@@ -27,6 +28,7 @@ export interface AgentRunnerConfig {
   pusherCluster?: string;
   pollInterval?: number;
   models?: string[];
+  ssePort?: number;
 }
 export class AgentRunner extends EventEmitter {
   private apiClient: SeedstrAPIClient;
@@ -38,8 +40,10 @@ export class AgentRunner extends EventEmitter {
   private pollInterval: number;
   private activeJobs: Map<string, Promise<void>> = new Map();
   private readonly MAX_CONCURRENT_JOBS = 3;
+  private sseServer: SSEServer;
   constructor(config: AgentRunnerConfig) {
     super();
+    this.sseServer = new SSEServer(config.ssePort ?? 3001);
     this.apiClient = new SeedstrAPIClient(config.seedstrApiKey);
     this.llmClient = new LLMClient({
       openrouterApiKey: config.openrouterApiKey,
@@ -62,11 +66,19 @@ export class AgentRunner extends EventEmitter {
     if (this.pusher) {
       this.connectWebSocket();
     }
+    // Start SSE server
+    this.sseServer.start();
+    this.isRunning = true;
 
     // Start polling loop
     this.startPolling();
 
     this.emit('started');
+    this.sseServer.broadcast({
+      type: 'agent_started',
+      timestamp: Date.now(),
+      data: { uptime: process.uptime() * 1000, status: 'running' },
+    });
   }
 
   async stop(): Promise<void> {
@@ -81,6 +93,7 @@ export class AgentRunner extends EventEmitter {
       this.pusher.disconnect();
     }
 
+    this.sseServer.stop();
     this.emit('stopped');
   }
 
@@ -126,6 +139,11 @@ export class AgentRunner extends EventEmitter {
 
       try {
         logger.debug('Polling for jobs');
+        this.sseServer.broadcast({
+          type: 'polling',
+          timestamp: Date.now(),
+          data: { interval },
+        });
         const response = await this.apiClient.getJobs(50);
 
         // Find unprocessed jobs
@@ -177,6 +195,11 @@ export class AgentRunner extends EventEmitter {
 
     logger.info(`Processing job ${job.id}: ${job.prompt}`);
     this.emit('job:start', job);
+    this.sseServer.broadcast({
+      type: 'job_found',
+      timestamp: Date.now(),
+      data: { id: job.id, prompt: job.prompt, budget: job.budget, skills: job.requiredSkills },
+    });
 
     try {
       // Create project builder
@@ -197,6 +220,11 @@ export class AgentRunner extends EventEmitter {
       };
 
       logger.info('Starting LLM generation');
+      this.sseServer.broadcast({
+        type: 'job_generating',
+        timestamp: Date.now(),
+        data: { id: job.id, model: 'auto' },
+      });
       const result = await this.llmClient.generate({
         messages: [
           { role: 'system', content: systemPrompt },
@@ -204,17 +232,38 @@ export class AgentRunner extends EventEmitter {
         ],
         tools,
         maxSteps: 20,
-        budget: job.budget, // Pass job budget for smart model selection
-        stream: false, // Set to true for streaming in future
+        budget: job.budget,
+        stream: true,
+        onChunk: (chunk: string) => {
+          // Broadcast each chunk via SSE for real-time UI updates
+          this.sseServer.broadcast({
+            type: 'job_generating',
+            timestamp: Date.now(),
+            data: { id: job.id, progress: 50, chunk },
+          });
+        },
       });
 
       logger.info('Generation complete', {
         textLength: result.text.length,
-        toolCalls: result.toolCalls.length,
+        toolCallsCount: result.toolCalls.length,
+        toolNames: result.toolCalls.map(tc => tc.name),
+      });
+      
+      // Debug: Log files created
+      const createdFiles = projectBuilder.getFiles();
+      logger.info('Files in project', {
+        fileCount: createdFiles.length,
+        files: createdFiles.map(f => f.path),
       });
 
       // Create ZIP
       logger.info('Creating project ZIP');
+      this.sseServer.broadcast({
+        type: 'job_building',
+        timestamp: Date.now(),
+        data: { id: job.id, progress: 75 },
+      });
       const zipBuffer = await projectBuilder.createZip();
 
       // Upload to Seedstr
@@ -229,6 +278,11 @@ export class AgentRunner extends EventEmitter {
 
       // Submit response
       logger.info('Submitting response');
+      this.sseServer.broadcast({
+        type: 'job_submitting',
+        timestamp: Date.now(),
+        data: { id: job.id },
+      });
       const submitResponse = await this.apiClient.submitResponse(
         job.id,
         `Generated frontend application based on requirements. Files: ${projectBuilder.getFiles().length}`,
@@ -236,6 +290,12 @@ export class AgentRunner extends EventEmitter {
       );
 
       logger.info('Job completed successfully', submitResponse);
+      this.emit('job:complete', { job, result: submitResponse });
+      this.sseServer.broadcast({
+        type: 'job_success',
+        timestamp: Date.now(),
+        data: { id: job.id, duration: 0 },
+      });
       this.emit('job:complete', { job, result: submitResponse });
 
       // Mark as processed
@@ -245,6 +305,12 @@ export class AgentRunner extends EventEmitter {
       await projectBuilder.cleanup();
     } catch (error) {
       logger.error('Job processing failed', error);
+      this.emit('job:error', { job, error });
+      this.sseServer.broadcast({
+        type: 'job_failed',
+        timestamp: Date.now(),
+        data: { id: job.id, error: error instanceof Error ? error.message : String(error) },
+      });
       this.emit('job:error', { job, error });
     }
   }
