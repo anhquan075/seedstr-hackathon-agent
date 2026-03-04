@@ -5,7 +5,7 @@ class ConfigManager {
         this.store = new Conf({
             projectName: 'seedstr-agent',
             defaults: {
-                pollInterval: 120000, // 2 minutes
+                pollInterval: 30000, // 30 seconds (optimized for hackathon)
                 processedJobs: [],
                 reputation: 0,
             },

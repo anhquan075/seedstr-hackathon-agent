@@ -6,6 +6,7 @@ export interface AgentRunnerConfig {
     pusherCluster?: string;
     pollInterval?: number;
     models?: string[];
+    ssePort?: number;
 }
 export declare class AgentRunner extends EventEmitter {
     private apiClient;
@@ -17,7 +18,12 @@ export declare class AgentRunner extends EventEmitter {
     private pollInterval;
     private activeJobs;
     private readonly MAX_CONCURRENT_JOBS;
+    private sseServer;
     constructor(config: AgentRunnerConfig);
+    /**
+     * Retry helper with exponential backoff
+     */
+    private retryWithBackoff;
     start(): Promise<void>;
     stop(): Promise<void>;
     private connectWebSocket;

@@ -43,19 +43,45 @@ export class AgentRunner extends EventEmitter {
   private sseServer: SSEServer;
   constructor(config: AgentRunnerConfig) {
     super();
+    this.config = config; // FIX: Assign config to instance property for later reference
     this.sseServer = new SSEServer(config.ssePort ?? 3001);
     this.apiClient = new SeedstrAPIClient(config.seedstrApiKey);
     this.llmClient = new LLMClient({
       openrouterApiKey: config.openrouterApiKey,
       models: config.models,
     });
-    this.pollInterval = config.pollInterval || 120000;
+    this.pollInterval = config.pollInterval || 30000;
 
     if (config.pusherKey && config.pusherCluster) {
       this.pusher = new Pusher(config.pusherKey, {
         cluster: config.pusherCluster,
       });
     }
+  }
+
+  /**
+   * Retry helper with exponential backoff
+   */
+  private async retryWithBackoff<T>(
+    fn: () => Promise<T>,
+    maxRetries = 3,
+    baseDelayMs = 1000,
+    operationName = 'operation'
+  ): Promise<T> {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        if (attempt === maxRetries - 1) {
+          logger.error(`${operationName} failed after ${maxRetries} attempts`, error);
+          throw error;
+        }
+        const delay = baseDelayMs * Math.pow(2, attempt);
+        logger.warn(`${operationName} attempt ${attempt + 1}/${maxRetries} failed, retrying in ${delay}ms`, error);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    throw new Error('Unreachable');
   }
   async start(): Promise<void> {
     if (this.isRunning) {
@@ -266,27 +292,37 @@ export class AgentRunner extends EventEmitter {
       });
       const zipBuffer = await projectBuilder.createZip();
 
-      // Upload to Seedstr
+      // Upload to Seedstr with retry
       logger.info('Uploading to Seedstr');
-      const uploadResponse = await this.apiClient.uploadFiles([
-        {
-          name: `project-${job.id}.zip`,
-          content: zipBuffer.toString('base64'),
-          type: 'application/zip',
-        },
-      ]);
+      const uploadResponse = await this.retryWithBackoff(
+        () => this.apiClient.uploadFiles([
+          {
+            name: `project-${job.id}.zip`,
+            content: zipBuffer.toString('base64'),
+            type: 'application/zip',
+          },
+        ]),
+        3,
+        1000,
+        'Upload files'
+      );
 
-      // Submit response
+      // Submit response with retry
       logger.info('Submitting response');
       this.sseServer.broadcast({
         type: 'job_submitting',
         timestamp: Date.now(),
         data: { id: job.id },
       });
-      const submitResponse = await this.apiClient.submitResponse(
-        job.id,
-        `Generated frontend application based on requirements. Files: ${projectBuilder.getFiles().length}`,
-        uploadResponse.files
+      const submitResponse = await this.retryWithBackoff(
+        () => this.apiClient.submitResponse(
+          job.id,
+          `Generated frontend application based on requirements. Files: ${projectBuilder.getFiles().length}`,
+          uploadResponse.files
+        ),
+        3,
+        1000,
+        'Submit response'
       );
 
       logger.info('Job completed successfully', submitResponse);
@@ -296,7 +332,6 @@ export class AgentRunner extends EventEmitter {
         timestamp: Date.now(),
         data: { id: job.id, duration: 0 },
       });
-      this.emit('job:complete', { job, result: submitResponse });
 
       // Mark as processed
       config.addProcessedJob(job.id);

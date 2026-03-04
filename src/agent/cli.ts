@@ -22,7 +22,7 @@ program
   .option('--pusher-key <key>', 'Pusher key (or use PUSHER_KEY env)')
 
   .option('--pusher-cluster <cluster>', 'Pusher cluster (or use PUSHER_CLUSTER env)')
-  .option('--poll-interval <ms>', 'Poll interval in milliseconds', '120000')
+  .option('--poll-interval <ms>', 'Poll interval in milliseconds', '30000')
   .option('--verbose', 'Enable verbose logging')
   .action(async (options) => {
     const seedstrApiKey =

@@ -140,54 +140,68 @@ export class LLMClient {
       apiKey: this.openrouterApiKey,
     });
 
-    // Use streaming if enabled
-    if (options.stream) {
-      const result = await streamText({
+    // Create timeout controller (2 minute max)
+    const TIMEOUT_MS = 120000;
+    const timeoutController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      logger.warn(`Model ${modelId} timeout after ${TIMEOUT_MS}ms`);
+      timeoutController.abort();
+    }, TIMEOUT_MS);
+
+    try {
+      // Use streaming if enabled
+      if (options.stream) {
+        const result = await streamText({
+          model: openrouter(modelId),
+          messages: options.messages,
+          tools: options.tools,
+          temperature: options.temperature || 0.7,
+          abortSignal: timeoutController.signal,
+        });
+        
+        // Collect stream and call onChunk callback
+        let fullText = '';
+        for await (const chunk of result.textStream) {
+          fullText += chunk;
+          if (options.onChunk) {
+            options.onChunk(chunk);
+          }
+        }
+        
+        // Await tool calls
+        const toolCallsResult = await result.toolCalls;
+        const finishReason = await result.finishReason;
+        
+        return {
+          text: fullText,
+          toolCalls: toolCallsResult.map((tc: any) => ({
+            name: tc.toolName,
+            args: tc.args,
+          })),
+          finishReason: finishReason || 'stop',
+        };
+      }
+      
+      // Non-streaming generation
+      const result = await generateText({
         model: openrouter(modelId),
         messages: options.messages,
         tools: options.tools,
         temperature: options.temperature || 0.7,
+        abortSignal: timeoutController.signal,
       });
-      
-      // Collect stream and call onChunk callback
-      let fullText = '';
-      for await (const chunk of result.textStream) {
-        fullText += chunk;
-        if (options.onChunk) {
-          options.onChunk(chunk);
-        }
-      }
-      
-      // Await tool calls
-      const toolCallsResult = await result.toolCalls;
-      const finishReason = await result.finishReason;
-      
+
       return {
-        text: fullText,
-        toolCalls: toolCallsResult.map((tc: any) => ({
+        text: result.text,
+        toolCalls: result.toolCalls?.map((tc: any) => ({
           name: tc.toolName,
           args: tc.args,
-        })),
-        finishReason: finishReason || 'stop',
+        })) || [],
+        finishReason: result.finishReason,
       };
+    } finally {
+      clearTimeout(timeoutId);
     }
-    
-    // Non-streaming generation
-    const result = await generateText({
-      model: openrouter(modelId),
-      messages: options.messages,
-      tools: options.tools,
-      temperature: options.temperature || 0.7,
-    });
-
-    return {
-      text: result.text,
-      toolCalls: result.toolCalls?.map((tc: any) => ({
-        name: tc.toolName,
-        args: tc.args,
-      })) || [],
-      finishReason: result.finishReason,
-    };
   }
 
 

@@ -9,6 +9,7 @@ export interface LLMGenerateOptions {
     temperature?: number;
     budget?: number;
     stream?: boolean;
+    onChunk?: (chunk: string) => void;
 }
 export interface LLMGenerateResult {
     text: string;
@@ -33,7 +34,11 @@ export declare class LLMClient {
         models?: string[];
     });
     /**
-     * Select optimal model based on job budget and requirements
+     * Assess job complexity based on prompt content
+     */
+    private assessComplexity;
+    /**
+     * Select optimal model based on job budget, complexity, and requirements
      */
     private selectModel;
     private tryModel;

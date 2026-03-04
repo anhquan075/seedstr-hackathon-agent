@@ -8,6 +8,7 @@ import { config } from './config.js';
 import { webSearchTool, calculatorTool, createFileTool, finalizeProjectTool, generateImageTool, httpRequestTool, } from './tools/index.js';
 import { setActiveProjectBuilder } from './tools/project-tools.js';
 import { getFrontendGenerationPrompt, getSystemPrompt, } from './prompts.js';
+import { SSEServer } from './sse-server.js';
 export class AgentRunner extends EventEmitter {
     apiClient;
     llmClient;
@@ -18,19 +19,42 @@ export class AgentRunner extends EventEmitter {
     pollInterval;
     activeJobs = new Map();
     MAX_CONCURRENT_JOBS = 3;
+    sseServer;
     constructor(config) {
         super();
+        this.config = config; // FIX: Assign config to instance property for later reference
+        this.sseServer = new SSEServer(config.ssePort ?? 3001);
         this.apiClient = new SeedstrAPIClient(config.seedstrApiKey);
         this.llmClient = new LLMClient({
             openrouterApiKey: config.openrouterApiKey,
             models: config.models,
         });
-        this.pollInterval = config.pollInterval || 120000;
+        this.pollInterval = config.pollInterval || 30000;
         if (config.pusherKey && config.pusherCluster) {
             this.pusher = new Pusher(config.pusherKey, {
                 cluster: config.pusherCluster,
             });
         }
+    }
+    /**
+     * Retry helper with exponential backoff
+     */
+    async retryWithBackoff(fn, maxRetries = 3, baseDelayMs = 1000, operationName = 'operation') {
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                return await fn();
+            }
+            catch (error) {
+                if (attempt === maxRetries - 1) {
+                    logger.error(`${operationName} failed after ${maxRetries} attempts`, error);
+                    throw error;
+                }
+                const delay = baseDelayMs * Math.pow(2, attempt);
+                logger.warn(`${operationName} attempt ${attempt + 1}/${maxRetries} failed, retrying in ${delay}ms`, error);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+        throw new Error('Unreachable');
     }
     async start() {
         if (this.isRunning) {
@@ -41,9 +65,17 @@ export class AgentRunner extends EventEmitter {
         if (this.pusher) {
             this.connectWebSocket();
         }
+        // Start SSE server
+        this.sseServer.start();
+        this.isRunning = true;
         // Start polling loop
         this.startPolling();
         this.emit('started');
+        this.sseServer.broadcast({
+            type: 'agent_started',
+            timestamp: Date.now(),
+            data: { uptime: process.uptime() * 1000, status: 'running' },
+        });
     }
     async stop() {
         this.isRunning = false;
@@ -54,6 +86,7 @@ export class AgentRunner extends EventEmitter {
         if (this.pusher) {
             this.pusher.disconnect();
         }
+        this.sseServer.stop();
         this.emit('stopped');
     }
     connectWebSocket() {
@@ -88,6 +121,11 @@ export class AgentRunner extends EventEmitter {
                 return;
             try {
                 logger.debug('Polling for jobs');
+                this.sseServer.broadcast({
+                    type: 'polling',
+                    timestamp: Date.now(),
+                    data: { interval },
+                });
                 const response = await this.apiClient.getJobs(50);
                 // Find unprocessed jobs
                 const newJobs = response.jobs.filter((job) => !config.isJobProcessed(job.id) && job.status === 'OPEN');
@@ -129,6 +167,11 @@ export class AgentRunner extends EventEmitter {
         }
         logger.info(`Processing job ${job.id}: ${job.prompt}`);
         this.emit('job:start', job);
+        this.sseServer.broadcast({
+            type: 'job_found',
+            timestamp: Date.now(),
+            data: { id: job.id, prompt: job.prompt, budget: job.budget, skills: job.requiredSkills },
+        });
         try {
             // Create project builder
             const projectBuilder = new ProjectBuilder(job.id);
@@ -145,6 +188,11 @@ export class AgentRunner extends EventEmitter {
                 http_request: httpRequestTool,
             };
             logger.info('Starting LLM generation');
+            this.sseServer.broadcast({
+                type: 'job_generating',
+                timestamp: Date.now(),
+                data: { id: job.id, model: 'auto' },
+            });
             const result = await this.llmClient.generate({
                 messages: [
                     { role: 'system', content: systemPrompt },
@@ -152,30 +200,60 @@ export class AgentRunner extends EventEmitter {
                 ],
                 tools,
                 maxSteps: 20,
-                budget: job.budget, // Pass job budget for smart model selection
-                stream: false, // Set to true for streaming in future
+                budget: job.budget,
+                stream: true,
+                onChunk: (chunk) => {
+                    // Broadcast each chunk via SSE for real-time UI updates
+                    this.sseServer.broadcast({
+                        type: 'job_generating',
+                        timestamp: Date.now(),
+                        data: { id: job.id, progress: 50, chunk },
+                    });
+                },
             });
             logger.info('Generation complete', {
                 textLength: result.text.length,
-                toolCalls: result.toolCalls.length,
+                toolCallsCount: result.toolCalls.length,
+                toolNames: result.toolCalls.map(tc => tc.name),
+            });
+            // Debug: Log files created
+            const createdFiles = projectBuilder.getFiles();
+            logger.info('Files in project', {
+                fileCount: createdFiles.length,
+                files: createdFiles.map(f => f.path),
             });
             // Create ZIP
             logger.info('Creating project ZIP');
+            this.sseServer.broadcast({
+                type: 'job_building',
+                timestamp: Date.now(),
+                data: { id: job.id, progress: 75 },
+            });
             const zipBuffer = await projectBuilder.createZip();
-            // Upload to Seedstr
+            // Upload to Seedstr with retry
             logger.info('Uploading to Seedstr');
-            const uploadResponse = await this.apiClient.uploadFiles([
+            const uploadResponse = await this.retryWithBackoff(() => this.apiClient.uploadFiles([
                 {
                     name: `project-${job.id}.zip`,
                     content: zipBuffer.toString('base64'),
                     type: 'application/zip',
                 },
-            ]);
-            // Submit response
+            ]), 3, 1000, 'Upload files');
+            // Submit response with retry
             logger.info('Submitting response');
-            const submitResponse = await this.apiClient.submitResponse(job.id, `Generated frontend application based on requirements. Files: ${projectBuilder.getFiles().length}`, uploadResponse.files);
+            this.sseServer.broadcast({
+                type: 'job_submitting',
+                timestamp: Date.now(),
+                data: { id: job.id },
+            });
+            const submitResponse = await this.retryWithBackoff(() => this.apiClient.submitResponse(job.id, `Generated frontend application based on requirements. Files: ${projectBuilder.getFiles().length}`, uploadResponse.files), 3, 1000, 'Submit response');
             logger.info('Job completed successfully', submitResponse);
             this.emit('job:complete', { job, result: submitResponse });
+            this.sseServer.broadcast({
+                type: 'job_success',
+                timestamp: Date.now(),
+                data: { id: job.id, duration: 0 },
+            });
             // Mark as processed
             config.addProcessedJob(job.id);
             // Cleanup
@@ -183,6 +261,12 @@ export class AgentRunner extends EventEmitter {
         }
         catch (error) {
             logger.error('Job processing failed', error);
+            this.emit('job:error', { job, error });
+            this.sseServer.broadcast({
+                type: 'job_failed',
+                timestamp: Date.now(),
+                data: { id: job.id, error: error instanceof Error ? error.message : String(error) },
+            });
             this.emit('job:error', { job, error });
         }
     }

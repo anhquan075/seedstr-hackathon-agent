@@ -14,7 +14,7 @@ export class LLMClient {
     MODEL_TIERS = {
         premium: 'anthropic/claude-3.5-sonnet', // High quality, $3-15/job
         fast: 'meta-llama/llama-3.3-70b-instruct', // Fast tool calling, $0.5-2/job
-        free: 'google/gemini-2.0-flash-exp:free', // Free tier, $0/job
+        free: 'google/gemini-2.5-flash-lite', // Free tier, $0/job
     };
     constructor(config) {
         this.openrouterApiKey = config.openrouterApiKey;
@@ -26,73 +26,133 @@ export class LLMClient {
         ];
     }
     /**
-     * Select optimal model based on job budget and requirements
+     * Assess job complexity based on prompt content
      */
-    selectModel(budget, hasTools) {
+    assessComplexity(prompt) {
+        // Count estimated files from prompt hints
+        const fileIndicators = [
+            /\d+\s*pages?/i,
+            /\d+\s*sections?/i,
+            /\d+\s*components?/i,
+            /\d+\s*files?/i,
+        ];
+        let estimatedFiles = 3; // Default assumption
+        for (const pattern of fileIndicators) {
+            const match = prompt.match(pattern);
+            if (match) {
+                const num = parseInt(match[0]);
+                if (!isNaN(num))
+                    estimatedFiles = Math.max(estimatedFiles, num);
+            }
+        }
+        // Check for complexity indicators
+        const hasImages = /image|photo|picture|illustration|graphic/i.test(prompt);
+        const hasAnimations = /animation|transition|effect|interactive|parallax/i.test(prompt);
+        const hasComplex = /dashboard|admin|e-commerce|shop|store|cart|checkout/i.test(prompt);
+        const hasMultiPage = /multi-?page|multiple pages|several pages/i.test(prompt);
+        // Simple: Single page, no images, no animations
+        if (estimatedFiles <= 2 && !hasImages && !hasAnimations && !hasComplex) {
+            return 'simple';
+        }
+        // Complex: Many files, images, animations, or complex features
+        if (estimatedFiles >= 6 || hasMultiPage || (hasImages && hasAnimations) || hasComplex) {
+            return 'complex';
+        }
+        // Medium: Everything else
+        return 'medium';
+    }
+    /**
+     * Select optimal model based on job budget, complexity, and requirements
+     */
+    selectModel(budget, hasTools, prompt) {
         if (!budget)
             return this.models[0]; // Default to first model
+        // Assess complexity if prompt provided
+        const complexity = prompt ? this.assessComplexity(prompt) : 'medium';
         // High budget jobs deserve premium quality
         if (budget >= 5) {
-            logger.info(`High budget ($${budget}), using premium model`);
+            logger.info(`High budget ($${budget}), complexity: ${complexity}, using premium model`);
             return this.MODEL_TIERS.premium;
         }
-        // Medium budget with tools → use fast model optimized for tool calling
-        if (budget >= 2 && hasTools) {
-            logger.info(`Medium budget ($${budget}) with tools, using fast model`);
+        // Medium budget: route by complexity
+        if (budget >= 2) {
+            if (complexity === 'complex') {
+                logger.info(`Medium budget ($${budget}), complex job, using premium model`);
+                return this.MODEL_TIERS.premium;
+            }
+            logger.info(`Medium budget ($${budget}), ${complexity} job, using fast model`);
             return this.MODEL_TIERS.fast;
         }
-        // Low budget → use free tier
-        logger.info(`Low budget ($${budget}), using free model`);
-        return this.MODEL_TIERS.free;
+        // Low budget: route by complexity
+        if (complexity === 'simple') {
+            logger.info(`Low budget ($${budget}), simple job, using free model`);
+            return this.MODEL_TIERS.free;
+        }
+        logger.info(`Low budget ($${budget}), ${complexity} job, using fast model`);
+        return this.MODEL_TIERS.fast;
     }
     async tryModel(modelId, options) {
         logger.info(`Trying OpenRouter model: ${modelId}`);
         const openrouter = createOpenRouter({
             apiKey: this.openrouterApiKey,
         });
-        // Use streaming if enabled
-        if (options.stream) {
-            const result = await streamText({
+        // Create timeout controller (2 minute max)
+        const TIMEOUT_MS = 120000;
+        const timeoutController = new AbortController();
+        const timeoutId = setTimeout(() => {
+            logger.warn(`Model ${modelId} timeout after ${TIMEOUT_MS}ms`);
+            timeoutController.abort();
+        }, TIMEOUT_MS);
+        try {
+            // Use streaming if enabled
+            if (options.stream) {
+                const result = await streamText({
+                    model: openrouter(modelId),
+                    messages: options.messages,
+                    tools: options.tools,
+                    temperature: options.temperature || 0.7,
+                    abortSignal: timeoutController.signal,
+                });
+                // Collect stream and call onChunk callback
+                let fullText = '';
+                for await (const chunk of result.textStream) {
+                    fullText += chunk;
+                    if (options.onChunk) {
+                        options.onChunk(chunk);
+                    }
+                }
+                // Await tool calls
+                const toolCallsResult = await result.toolCalls;
+                const finishReason = await result.finishReason;
+                return {
+                    text: fullText,
+                    toolCalls: toolCallsResult.map((tc) => ({
+                        name: tc.toolName,
+                        args: tc.args,
+                    })),
+                    finishReason: finishReason || 'stop',
+                };
+            }
+            // Non-streaming generation
+            const result = await generateText({
                 model: openrouter(modelId),
                 messages: options.messages,
                 tools: options.tools,
                 temperature: options.temperature || 0.7,
+                abortSignal: timeoutController.signal,
             });
-            // Await promises before consuming streams
-            const [finishReason, toolCallsResult] = await Promise.all([
-                result.finishReason,
-                result.toolCalls,
-            ]);
-            // Collect stream into full result
-            let fullText = '';
-            for await (const chunk of result.textStream) {
-                fullText += chunk;
-                logger.debug('Stream chunk received');
-            }
             return {
-                text: fullText,
-                toolCalls: toolCallsResult.map((tc) => ({
+                text: result.text,
+                toolCalls: result.toolCalls?.map((tc) => ({
                     name: tc.toolName,
                     args: tc.args,
-                })),
-                finishReason: finishReason || 'stop',
+                })) || [],
+                finishReason: result.finishReason,
             };
         }
-        // Non-streaming generation
-        const result = await generateText({
-            model: openrouter(modelId),
-            messages: options.messages,
-            tools: options.tools,
-            temperature: options.temperature || 0.7,
-        });
-        return {
-            text: result.text,
-            toolCalls: result.toolCalls?.map((tc) => ({
-                name: tc.toolName,
-                args: tc.args,
-            })) || [],
-            finishReason: result.finishReason,
-        };
+        finally {
+            clearTimeout(timeoutId);
+        }
     }
     /**
      * Generate with automatic fallback through OpenRouter models
@@ -100,7 +160,10 @@ export class LLMClient {
      */
     async generate(options) {
         const hasTools = options.tools && Object.keys(options.tools).length > 0;
-        const primaryModel = this.selectModel(options.budget, hasTools);
+        // Extract prompt from messages for complexity assessment
+        const userMessage = options.messages.find(m => m.role === 'user');
+        const prompt = userMessage?.content || '';
+        const primaryModel = this.selectModel(options.budget, hasTools, prompt);
         // Try primary model first, then fallback chain
         const modelsToTry = [primaryModel, ...this.models.filter(m => m !== primaryModel)];
         let lastError = null;
