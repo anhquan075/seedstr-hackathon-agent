@@ -1,60 +1,41 @@
-# Seedstr Agent + Dashboard - Railway Deployment
-# Multi-stage build: TypeScript agent + Next.js dashboard
+# Seedstr Agent Server - Railway Deployment
+FROM node:22-alpine
 
-# Stage 1: Build TypeScript Agent + Next.js Dashboard
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-
-# Copy all package files
-COPY package*.json ./
-COPY tsconfig.json tsconfig.agent.json next.config.ts postcss.config.mjs ./
-
-# Install ALL dependencies (both agent and Next.js)
-RUN npm ci
-
-# Copy ALL source code
-COPY src ./src
-COPY public ./public
-
-# Build TypeScript agent
-RUN npm run agent:build
-
-# Build Next.js dashboard
-RUN npm run build
-
-# Verify build outputs
-RUN ls -la /app/dist && ls -la /app/out
-
-# Stage 2: Production runtime
-FROM node:20-alpine AS runner
+# Install pnpm
+RUN npm install -g pnpm
 
 WORKDIR /app
 
-# Install production dependencies
-COPY package*.json ./
-RUN npm ci --only=production && \
-    npm cache clean --force
+# Copy all source code first
+COPY . .
 
-# Copy built files from builder
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/out ./out
-COPY --from=builder /app/public ./public
+# Build frontend
+WORKDIR /app/frontend
+RUN pnpm install && pnpm run build
 
-# Copy necessary config files
-COPY tsconfig.json tsconfig.agent.json next.config.ts ./
+# Build backend (use tsc directly, not the build script that tries to cd to frontend)
+WORKDIR /app/backend
+RUN pnpm install && npx tsc -p tsconfig.json
 
-# Create directory for agent state
-RUN mkdir -p /root/.seedstr && \
-    chmod 755 /root/.seedstr
+# Copy frontend build output to backend's out directory (where SSE server expects it)
+RUN mkdir -p out && cp -r ../frontend/out/* out/ 2>/dev/null || true
+
+# Create state directory
+RUN mkdir -p /root/.seedstr && chmod 755 /root/.seedstr
 
 # Set environment
 ENV NODE_ENV=production
-ENV PORT=3001
+
+# Set working directory back to backend for startup
+WORKDIR /app/backend
+ENV NODE_ENV=production
+
+# Expose port 8080 for Railway
+EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-8080}/health || exit 1
 
-# Run the agent (which includes SSE server with dashboard)
-CMD ["npm", "run", "agent:start"]
+# Start the agent server
+CMD ["pnpm", "run", "start"]
