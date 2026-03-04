@@ -50,7 +50,7 @@ export class AgentRunner extends EventEmitter {
       openrouterApiKey: config.openrouterApiKey,
       models: config.models,
     });
-    this.pollInterval = config.pollInterval || 30000;
+    this.pollInterval = config.pollInterval || 10000; // 10 seconds for competitive speed
 
     if (config.pusherKey && config.pusherCluster) {
       this.pusher = new Pusher(config.pusherKey, {
