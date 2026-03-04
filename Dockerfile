@@ -8,7 +8,7 @@ WORKDIR /app
 
 # Copy all package files
 COPY package*.json ./
-COPY tsconfig.json tsconfig.agent.json next.config.ts tailwind.config.ts postcss.config.mjs ./
+COPY tsconfig.json tsconfig.agent.json next.config.ts postcss.config.mjs ./
 
 # Install ALL dependencies (both agent and Next.js)
 RUN npm ci
@@ -24,7 +24,7 @@ RUN npm run agent:build
 RUN npm run build
 
 # Verify build outputs
-RUN ls -la /app/dist && ls -la /app/.next
+RUN ls -la /app/dist && ls -la /app/out
 
 # Stage 2: Production runtime
 FROM node:20-alpine AS runner
@@ -38,7 +38,7 @@ RUN npm ci --only=production && \
 
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/out ./out
 COPY --from=builder /app/public ./public
 
 # Copy necessary config files
