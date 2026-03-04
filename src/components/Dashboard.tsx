@@ -26,10 +26,20 @@ interface AgentHealth {
   details?: any;
 }
 
+interface Metrics {
+  uptime: number;
+  totalJobs: number;
+  completedJobs: number;
+  failedJobs: number;
+  avgResponseTime: number;
+  lastJobTime: number;
+}
+
 export default function Dashboard() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [health, setHealth] = useState<AgentHealth>({ status: "offline", lastCheck: 0 });
+  const [metrics, setMetrics] = useState<Metrics>({ uptime: 0, totalJobs: 0, completedJobs: 0, failedJobs: 0, avgResponseTime: 0, lastJobTime: 0 });
   const [connectionStatus, setConnectionStatus] = useState<"connected" | "disconnected" | "connecting">("connecting");
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -139,10 +149,26 @@ export default function Dashboard() {
   const updateJob = (id: string, status: Job["status"], data: any) => {
     setJobs((prev) => {
       const existing = prev.find((j) => j.id === id);
+      let updated;
       if (existing) {
-        return prev.map((j) => (j.id === id ? { ...j, status, ...data } : j));
+        updated = prev.map((j) => (j.id === id ? { ...j, status, ...data } : j));
+      } else {
+        updated = [{ id, type: "unknown", status, timestamp: Date.now(), ...data }, ...prev];
       }
-      return [{ id, type: "unknown", status, timestamp: Date.now(), ...data }, ...prev];
+      
+      // Update metrics
+      const completed = updated.filter(j => j.status === 'completed').length;
+      const failed = updated.filter(j => j.status === 'failed').length;
+      setMetrics(prev => ({
+        uptime: Date.now() - (prev.uptime || Date.now()),
+        totalJobs: updated.length,
+        completedJobs: completed,
+        failedJobs: failed,
+        avgResponseTime: 150, // Placeholder - would need timing data
+        lastJobTime: status === 'completed' || status === 'failed' ? Date.now() : prev.lastJobTime
+      }));
+      
+      return updated;
     });
   };
 
@@ -173,6 +199,16 @@ export default function Dashboard() {
           <StatusBadge label="AI" status={health.status === "ok" ? "active" : "warn"} icon={Zap} />
         </div>
       </header>
+
+      {/* Production Metrics */}
+      <section className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <MetricCard label="Uptime" value={formatUptime(Date.now() - metrics.uptime)} icon={Activity} color="cyan" />
+        <MetricCard label="Total Jobs" value={metrics.totalJobs.toString()} icon={Zap} color="magenta" />
+        <MetricCard label="Completed" value={metrics.completedJobs.toString()} icon={CheckCircle} color="green" />
+        <MetricCard label="Failed" value={metrics.failedJobs.toString()} icon={AlertTriangle} color="red" />
+        <MetricCard label="Success Rate" value={metrics.totalJobs > 0 ? `${Math.round((metrics.completedJobs / metrics.totalJobs) * 100)}%` : '0%'} icon={Activity} color="cyan" />
+      </section>
+
 
       <main className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-140px)]">
         {/* Left Column: Job Queue */}
@@ -301,4 +337,37 @@ function JobCard({ job, active = false }: { job: Job, active?: boolean }) {
       )}
     </motion.div>
   );
+}
+
+function MetricCard({ label, value, icon: Icon, color }: { label: string, value: string, icon: any, color: 'cyan' | 'magenta' | 'green' | 'red' }) {
+  const colors = {
+    cyan: 'from-[#00f3ff] to-[#00f3ff]/50 border-[#00f3ff]/30',
+    magenta: 'from-[#bd00ff] to-[#bd00ff]/50 border-[#bd00ff]/30',
+    green: 'from-[#00ff9f] to-[#00ff9f]/50 border-[#00ff9f]/30',
+    red: 'from-red-500 to-red-500/50 border-red-500/30'
+  };
+  
+  return (
+    <div className={`bg-gradient-to-br ${colors[color]} border rounded-lg p-4 relative overflow-hidden group hover:scale-105 transition-transform`}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs uppercase tracking-wider opacity-70">{label}</span>
+        <Icon className="w-4 h-4 opacity-50" />
+      </div>
+      <div className="text-2xl font-bold" style={{ fontFamily: 'var(--font-orbitron)' }}>{value}</div>
+      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+    </div>
+  );
+}
+
+function formatUptime(ms: number): string {
+  if (ms <= 0) return '0s';
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  
+  if (days > 0) return `${days}d ${hours % 24}h`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+  return `${seconds}s`;
 }
