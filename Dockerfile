@@ -1,43 +1,48 @@
-# Seedstr Agent - Railway Deployment
-# Multi-stage build for optimized image size
+# Seedstr Agent + Dashboard - Railway Deployment
+# Multi-stage build: TypeScript agent + Next.js dashboard
 
-# Stage 1: Build TypeScript
+# Stage 1: Build TypeScript Agent + Next.js Dashboard
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
+# Copy all package files
 COPY package*.json ./
-COPY tsconfig.json tsconfig.agent.json ./
+COPY tsconfig.json tsconfig.agent.json next.config.ts tailwind.config.ts postcss.config.mjs ./
 
-# Install dependencies
-RUN npm ci --only=production && \
-    npm ci --only=development
+# Install ALL dependencies (both agent and Next.js)
+RUN npm ci
 
-# Copy source code
-COPY src/agent ./src/agent
+# Copy ALL source code
+COPY src ./src
+COPY public ./public
 
-# Build TypeScript
+# Build TypeScript agent
 RUN npm run agent:build
 
-# Verify build output
-RUN ls -la /app && ls -la /app/dist || echo 'dist not found'
+# Build Next.js dashboard
+RUN npm run build
+
+# Verify build outputs
+RUN ls -la /app/dist && ls -la /app/.next
 
 # Stage 2: Production runtime
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Install production dependencies only
+# Install production dependencies
 COPY package*.json ./
 RUN npm ci --only=production && \
     npm cache clean --force
 
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
 
 # Copy necessary config files
-COPY tsconfig.json tsconfig.agent.json ./
+COPY tsconfig.json tsconfig.agent.json next.config.ts ./
 
 # Create directory for agent state
 RUN mkdir -p /root/.seedstr && \
@@ -45,12 +50,11 @@ RUN mkdir -p /root/.seedstr && \
 
 # Set environment
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=3001
 
-# Health check endpoint (Railway requires one)
-# Note: Agent doesn't expose HTTP, so we just check if process is alive
+# Health check
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-    CMD node -e "process.exit(0)"
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
 
-# Run the agent
+# Run the agent (which includes SSE server with dashboard)
 CMD ["npm", "run", "agent:start"]

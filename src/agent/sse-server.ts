@@ -1,4 +1,6 @@
 import http from 'http';
+import path from 'path';
+import fs from 'fs';
 
 // SSE event types matching UI's AgentEvent union
 export type SSEEventType =
@@ -87,10 +89,10 @@ export class SSEServer {
         });
       } else if (req.url === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'ok', clients: this.clients.size }));
+        res.end(JSON.stringify({ status: 'ok', clients: this.clients.size, agentName: 'Seedstr-Agent', uptime: Math.floor(process.uptime()) }));
       } else {
-        res.writeHead(404);
-        res.end();
+        // Serve Next.js static files for dashboard
+        this.serveStaticFile(req, res);
       }
     });
 
@@ -128,4 +130,81 @@ export class SSEServer {
   get clientCount(): number {
     return this.clients.size;
   }
+
+  /** Serve Next.js static files from the 'out/' directory (static export) */
+  private serveStaticFile(req: http.IncomingMessage, res: http.ServerResponse): void {
+    // Map URL to file path (default to index.html for root)
+    let filePath = req.url === '/' ? '/index.html' : req.url || '/index.html';
+
+    // Remove query strings
+    filePath = filePath.split('?')[0];
+
+    // Build full path to 'out/' directory
+    const fullPath = path.join(process.cwd(), 'out', filePath);
+
+    // Security: prevent directory traversal
+    const outDir = path.join(process.cwd(), 'out');
+    if (!fullPath.startsWith(outDir)) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end('Forbidden');
+      return;
+    }
+
+    // Check if file exists
+    if (!fs.existsSync(fullPath)) {
+      // Try index.html for SPA routes
+      const indexPath = path.join(outDir, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        this.sendFile(indexPath, res);
+      } else {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Dashboard Not Found - Build with: npm run build');
+      }
+      return;
+    }
+
+    // If directory, serve index.html
+    if (fs.statSync(fullPath).isDirectory()) {
+      const indexPath = path.join(fullPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        this.sendFile(indexPath, res);
+      } else {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
+      }
+      return;
+    }
+
+    this.sendFile(fullPath, res);
+  }
+
+  private sendFile(filePath: string, res: http.ServerResponse): void {
+    const ext = path.extname(filePath);
+    const contentTypes: Record<string, string> = {
+      '.html': 'text/html',
+      '.js': 'application/javascript',
+      '.css': 'text/css',
+      '.json': 'application/json',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.svg': 'image/svg+xml',
+      '.ico': 'image/x-icon',
+      '.woff': 'font/woff',
+      '.woff2': 'font/woff2',
+    };
+
+    const contentType = contentTypes[ext] || 'application/octet-stream';
+
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end('Internal Server Error');
+        return;
+      }
+
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(data);
+    });
+}
 }
