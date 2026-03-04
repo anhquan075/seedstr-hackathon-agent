@@ -29,7 +29,7 @@ export class AgentRunner extends EventEmitter {
             openrouterApiKey: config.openrouterApiKey,
             models: config.models,
         });
-        this.pollInterval = config.pollInterval || 30000;
+        this.pollInterval = config.pollInterval || 10000; // 10 seconds for competitive speed
         if (config.pusherKey && config.pusherCluster) {
             this.pusher = new Pusher(config.pusherKey, {
                 cluster: config.pusherCluster,
@@ -115,7 +115,7 @@ export class AgentRunner extends EventEmitter {
         });
     }
     startPolling() {
-        const interval = this.config?.pollInterval ?? 120000;
+        const interval = this.pollInterval; // Use instance property (set to 30000 in constructor)
         const poll = async () => {
             if (!this.isRunning)
                 return;
