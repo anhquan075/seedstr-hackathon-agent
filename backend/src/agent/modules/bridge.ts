@@ -101,6 +101,32 @@ export class Bridge {
         data: data as unknown as Record<string, unknown>,
       });
     });
+    this.eventBus.on('job_accepted', (data) => {
+      this.sseServer.broadcast({
+        type: 'job_accepted',
+        timestamp: Date.now(),
+        data: {
+          id: data.id,
+          prompt: data.prompt,
+          budget: data.budget,
+          jobType: data.jobType,
+          timestamp: data.timestamp,
+        },
+      });
+    });
+
+    this.eventBus.on('job_generated', (data) => {
+      this.sseServer.broadcast({
+        type: 'job_generated',
+        timestamp: Date.now(),
+        data: {
+          id: data.id,
+          responseType: data.responseType,
+          timestamp: data.timestamp,
+        },
+      });
+    });
+
 
     console.log('[Bridge] Started. Listening to event bus...');
   }

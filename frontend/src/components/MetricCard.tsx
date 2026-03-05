@@ -1,6 +1,10 @@
+import { useMetricData, MetricKey } from "../hooks/useMetricData";
+import { Loader } from "lucide-react";
+
 interface MetricCardProps {
   label: string;
-  value: string;
+  value?: string;
+  metricKey?: MetricKey;
   icon: any;
   color: "cyan" | "magenta" | "green" | "red";
   suppressHydrationWarning?: boolean;
@@ -8,11 +12,18 @@ interface MetricCardProps {
 
 export function MetricCard({
   label,
-  value,
+  value: staticValue,
+  metricKey,
   icon: Icon,
   color,
   suppressHydrationWarning,
 }: MetricCardProps) {
+  const { value: liveValue, isLoading } = useMetricData(metricKey || 'totalJobs');
+  
+  // Use live data if metricKey is provided, otherwise use static value
+  const displayValue = metricKey ? liveValue : staticValue;
+  const isMetricLoading = metricKey ? isLoading : false;
+
   const colors = {
     cyan: "from-blue-400 to-blue-400/50 border-blue-400/30",
     magenta: "from-purple-500 to-purple-500/50 border-purple-500/30",
@@ -28,14 +39,18 @@ export function MetricCard({
         <span className="text-xs uppercase tracking-wider opacity-70">
           {label}
         </span>
-        <Icon className="w-4 h-4 opacity-50" />
+        {isMetricLoading ? (
+          <Loader className="w-4 h-4 opacity-50 animate-spin" />
+        ) : (
+          <Icon className="w-4 h-4 opacity-50" />
+        )}
       </div>
       <div
         className="text-2xl font-bold"
         style={{ fontFamily: "var(--font-orbitron)" }}
         suppressHydrationWarning={suppressHydrationWarning}
       >
-        {value}
+        {displayValue}
       </div>
       <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
     </div>

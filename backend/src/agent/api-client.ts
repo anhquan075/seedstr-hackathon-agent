@@ -130,6 +130,18 @@ export class SeedstrAPIClient {
     });
   }
 
+  async listJobsV2(limit: number = 50, offset: number = 0): Promise<SeedstrJobsResponse> {
+    return this.request<SeedstrJobsResponse>(`/jobs?limit=${limit}&offset=${offset}`);
+  }
+
+  async getJobV2(jobId: string): Promise<SeedstrJob> {
+    return this.request<SeedstrJob>(`/jobs/${jobId}`);
+  }
+
+  async getMeV2(): Promise<any> {
+    return this.request<any>('/me');
+  }
+
   async getMe(): Promise<any> {
     return this.request<any>('/me');
   }
@@ -156,7 +168,7 @@ export class SeedstrAPIClient {
       method: 'POST',
       body: JSON.stringify({
         content,
-        responseType: 'FILE',
+        responseType: files.length > 0 ? 'FILE' : 'TEXT',
         files,
       }),
     });

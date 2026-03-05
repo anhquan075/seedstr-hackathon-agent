@@ -15,7 +15,19 @@ export type SSEEventType =
   | 'job_failed'
   | 'job_found'
   | 'job_generated'
-  | 'error';
+  | 'log'
+  | 'error'
+  | 'job_accepted'
+  | 'job_skipped'
+  | 'tool_call'
+  | 'tool_result'
+  | 'response_generated'
+  | 'project_built'
+  | 'files_uploading'
+  | 'files_uploaded'
+  | 'response_submitted';
+
+
 
 export interface SSEEvent {
   type: SSEEventType;
@@ -90,12 +102,9 @@ export class SSEServer {
         res.write(initialMsg);
         console.log(`[SSE] Initial message written (${initialMsg.length} bytes)`);
         
-        // Railway edge proxy needs more data to start streaming
-        // Send multiple comment lines to exceed buffering threshold
-        for (let i = 0; i < 5; i++) {
-          res.write(`: keepalive ${i}\n`);
-        }
-        res.write('\n');
+        // Railway edge proxy needs at least some data to start streaming
+        // Single comment line is enough to trigger streaming
+        res.write(':\n\n');
         console.log('[SSE] Sent additional keepalive comments');
         
         // Force flush to prevent Railway buffering
@@ -114,14 +123,14 @@ export class SSEServer {
           },
         });
 
-        // Keep-alive ping every 15s (Railway edge proxy timeout - Nexus-Forge pattern)
+        // Keep-alive: send actual polling event every 15s (Railway edge proxy timeout)
         const ping = setInterval(() => {
           try {
-            res.write(': ping\n\n');
-            // Flush ping immediately
-            if (res.socket) {
-              res.socket.uncork();
-            }
+            this.sendToClient(res, {
+              type: 'polling',
+              timestamp: Date.now(),
+              data: {}
+            });
           } catch {
             clearInterval(ping);
             this.clients.delete(res);
@@ -201,15 +210,35 @@ export class SSEServer {
     this.controlHandlers = handlers;
   }
 
+  /** Send a log message to all connected clients */
+  public logToClients(level: 'info' | 'warn' | 'error', message: string): void {
+    const event: SSEEvent = {
+      type: 'log',
+      timestamp: Date.now(),
+      data: {
+        id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        level,
+        message,
+      },
+    };
+
+    for (const client of this.clients) {
+      this.sendToClient(client, event);
+    }
+    
+    // Also log to server console
+    console.log(`[SSE Log] ${level.toUpperCase()}: ${message}`);
+  }
+
   /** Broadcast an event to all connected clients */
   broadcast(event: SSEEvent): void {
-    // Track job state changes
+    // Track job state changes and log them to clients
     if (event.type.startsWith('job_')) {
-      const jobId = (event.data.id as string) || 'unknown';
+      const jobId = (event.data.jobId as string) || (event.data.id as string) || 'unknown';
       const existingJob = this.jobsMap.get(jobId) || {};
       
       // Update job state based on event type
-      if (event.type === 'job_received') {
+      if (event.type === 'job_found') {
         this.jobsMap.set(jobId, {
           id: jobId,
           status: 'received',
@@ -220,12 +249,28 @@ export class SSEServer {
           output: null,
           error: null,
         });
+        this.logToClients('info', `Job Found: ${jobId} - "${event.data.prompt}" (Budget: ${event.data.budget})`);
+      } else if (event.type === 'job_received') {
+        this.jobsMap.set(jobId, {
+          id: jobId,
+          status: 'received',
+          prompt: event.data.prompt,
+          budget: event.data.budget,
+          skills: event.data.skills,
+          timestamp: event.timestamp,
+          output: null,
+          error: null,
+        });
+        this.logToClients('info', `Job Received: ${jobId}`);
       } else if (event.type === 'job_processing') {
         this.jobsMap.set(jobId, { ...existingJob, status: 'processing', timestamp: event.timestamp });
+        this.logToClients('info', `Job Processing: ${jobId} - Stage: ${event.data.stage || 'executing'}`);
       } else if (event.type === 'job_completed') {
         this.jobsMap.set(jobId, { ...existingJob, status: 'completed', output: event.data.result, timestamp: event.timestamp, completedAt: event.timestamp });
+        this.logToClients('info', `Job Completed: ${jobId}`);
       } else if (event.type === 'job_failed') {
         this.jobsMap.set(jobId, { ...existingJob, status: 'failed', error: event.data.error, timestamp: event.timestamp, completedAt: event.timestamp });
+        this.logToClients('error', `Job Failed: ${jobId} - ${event.data.error}`);
       }
     }
     
@@ -449,6 +494,22 @@ export class SSEServer {
             status: 'queued'
           }
         });
+
+        // Also create the .agent-prompt file to trigger actual execution via Watcher
+        try {
+          const promptFile = path.join(process.cwd(), '.agent-prompt');
+          const fileContent = [
+            prompt,
+            `budget: ${budget}`,
+            `jobId: ${jobId}`,
+            `status: queued`,
+            `isLocal: true`,
+          ].join('\n');
+          fs.writeFileSync(promptFile, fileContent);
+          console.log(`[SSE] Created .agent-prompt for job ${jobId}`);
+        } catch (err) {
+          console.error('[SSE] Failed to create .agent-prompt:', err);
+        }
 
         this.respondJson(res, 201, {
           jobId,

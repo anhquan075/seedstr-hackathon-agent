@@ -56,11 +56,10 @@ export class Packer {
 
     try {
       await this.apiClient.acceptJob(job.id);
-      this.bus.emit('job_swarm_accepted', {
+      this.bus.emit('job_accepted', {
         id: job.id,
         prompt: job.prompt,
         budget: job.budget,
-        skills: job.skills,
         jobType: job.jobType,
         timestamp: Date.now(),
       });
@@ -78,7 +77,7 @@ export class Packer {
     buildDir: string,
     brainOutput: BrainOutput,
     responseType: 'TEXT' | 'FILE' = 'FILE',
-    jobMetadata?: Omit<JobMetadata, 'id'>
+    jobMetadata?: Omit<JobMetadata, 'id'> & { isLocal?: boolean }
   ): Promise<void> {
     const startTime = Date.now();
 
@@ -106,10 +105,23 @@ export class Packer {
         timestamp: Date.now(),
       });
 
-      if (responseType === 'TEXT') {
-        await this.submitTextResponse(jobId, brainOutput);
+      if (jobMetadata?.isLocal) {
+        console.log(`[Packer] SKIPPING real submission for LOCAL job ${jobId}`);
+        // Simulate completion for local jobs so they show up in UI terminal as finished
+        this.bus.emit('job_completed', {
+          id: jobId,
+          output: brainOutput.rawResponse,
+          outputTruncated: brainOutput.rawResponse.slice(0, 80) + '...',
+          responseId: `local-${jobId}`,
+          timestamp: Date.now(),
+          responseType,
+        });
       } else {
-        await this.submitFileResponse(jobId, buildDir, brainOutput);
+        if (responseType === 'TEXT') {
+          await this.submitTextResponse(jobId, brainOutput);
+        } else {
+          await this.submitFileResponse(jobId, buildDir, brainOutput);
+        }
       }
 
       this.swarmDeadlines.delete(jobId);

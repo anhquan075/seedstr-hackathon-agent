@@ -8,7 +8,7 @@ export interface LogEntry {
   message: string;
 }
 
-export function useSSE() {
+export function useSSE(): { logs: LogEntry[]; connectionStatus: "connected" | "disconnected" | "connecting"; addLog: (level: "info" | "warn" | "error", message: string) => void } {
   const upsertJob = useJobStore((state) => state.upsertJob);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<"connected" | "disconnected" | "connecting">("connecting");
@@ -49,11 +49,13 @@ export function useSSE() {
       };
 
       eventSource.onerror = () => {
+        // Don't log as error - this fires for normal disconnects (timeout, tab sleep, etc.)
+        // Reconnection happens automatically after 3s
         setConnectionStatus("disconnected");
-        addLog("error", "SSE Connection Error. Retrying...");
+        addLog("info", "SSE disconnected. Reconnecting...");
         eventSource?.close();
         setTimeout(connectSSE, 3000);
-        console.error("[SSE] Connection failed:", sseUrl);
+        console.log("[SSE] Disconnected, reconnecting in 3s...");
       };
 
       eventSource.addEventListener("log", (event: MessageEvent) => {
@@ -68,9 +70,40 @@ export function useSSE() {
       eventSource.addEventListener("job_received", (event: MessageEvent) => {
         try {
           const data = JSON.parse(event.data);
-          upsertJob(data.id || Date.now().toString(), "received", data);
-          addLog("info", `Job Received: ${data.id}`);
-        } catch (e) {}
+          const jobId = data.jobId || data.id || Date.now().toString();
+          
+          upsertJob(jobId, "received", {
+            id: jobId,
+            prompt: data.prompt,
+            budget: data.budget,
+            status: "received",
+            timestamp: data.timestamp || Date.now(),
+          });
+          
+          addLog("info", `Job Received: ${jobId}`);
+        } catch (e) {
+          addLog("error", "Failed to parse job_received event");
+        }
+      });
+
+      // Handle job_found from /api/jobs POST (different from polling job_received)
+      eventSource.addEventListener("job_found", (event: MessageEvent) => {
+        try {
+          const data = JSON.parse(event.data);
+          const jobId = data.jobId || data.id || Date.now().toString();
+          
+          upsertJob(jobId, "received", {
+            id: jobId,
+            prompt: data.prompt,
+            budget: data.budget,
+            status: "received",
+            timestamp: data.timestamp || Date.now(),
+          });
+          
+          addLog("info", `Job Found: ${jobId}`);
+        } catch (e) {
+          addLog("error", "Failed to parse job_found event");
+        }
       });
 
       eventSource.addEventListener("job_processing", (event: MessageEvent) => {

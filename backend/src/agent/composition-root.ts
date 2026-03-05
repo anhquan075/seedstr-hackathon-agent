@@ -70,7 +70,7 @@ export function createAgentPipeline(
   // Initialize capabilities with real agent reputation from Seedstr API
   let agentCapabilities = {
     agentReputation: config.reputation || 0,
-    minBudgetRequired: 1.0, // 1 USD minimum per README requirement
+    minBudgetRequired: 0.5, // 0.5 USD minimum requirement
     maxConcurrentJobs: 3, // Support up to 3 concurrent jobs
     get activeJobCount() { return orchestrator.getActiveJobCount(); }, // Dynamically linked to orchestrator
   };

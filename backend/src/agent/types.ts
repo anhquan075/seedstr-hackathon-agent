@@ -161,6 +161,7 @@ export interface AgentEventMap {
     skills?: string[];
     description?: string;
     responseType?: 'TEXT' | 'FILE';
+    isLocal?: boolean;
   };
   job_processing: {
     id: string;
@@ -188,14 +189,14 @@ export interface AgentEventMap {
     timelineMs: number;
   };
 
-  job_swarm_accepted: {
+  job_accepted: {
     id: string;
     prompt: string;
     budget: number;
-    skills: string[];
     jobType: 'SWARM' | 'STANDARD';
     timestamp: number;
   };
+
   job_generated: {
     id: string;
     output: BrainOutput;
@@ -234,3 +235,23 @@ export type ApprovalEventData =
       responseType: 'TEXT' | 'FILE';
       timestamp: number;
     };
+
+export type AgentEvent =
+  | { type: "startup" }
+  | { type: "shutdown" }
+  | { type: "websocket_connected" }
+  | { type: "websocket_disconnected"; reason?: string }
+  | { type: "websocket_job"; jobId: string }
+  | { type: "polling"; jobCount: number }
+  | { type: "job_found"; job: SeedstrJob }
+  | { type: "job_accepted"; job: SeedstrJob; budgetPerAgent: number | null }
+  | { type: "job_processing"; job: SeedstrJob }
+  | { type: "job_skipped"; job: SeedstrJob; reason: string }
+  | { type: "tool_call"; tool: string; args: unknown }
+  | { type: "tool_result"; tool: string; result: any }
+  | { type: "response_generated"; job: SeedstrJob; preview: string; usage?: { promptTokens: number; completionTokens: number; totalTokens: number } }
+  | { type: "project_built"; job: SeedstrJob; files: string[]; zipPath: string }
+  | { type: "files_uploading"; job: SeedstrJob; fileCount: number }
+  | { type: "files_uploaded"; job: SeedstrJob; files: any[] }
+  | { type: "response_submitted"; job: SeedstrJob; responseId: string; hasFiles?: boolean }
+  | { type: "error"; message: string; error?: any };

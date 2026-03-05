@@ -116,7 +116,7 @@ export class Watcher {
       const skills = this.parseSkills(lines);
       const description = this.parseDescription(lines);
       const responseType = this.parseResponseType(lines);
-      const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const jobId = this.parseField(lines, 'jobId') || `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
       console.log(`[Watcher] New prompt detected: "${prompt.slice(0, 50)}..."`);
 
@@ -130,6 +130,7 @@ export class Watcher {
         skills,
         description,
         responseType,
+        isLocal: this.parseField(lines, 'isLocal') === 'true',
       });
 
       // Clean up the prompt file

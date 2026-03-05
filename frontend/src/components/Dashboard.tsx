@@ -1,5 +1,3 @@
-
-
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity,
@@ -22,6 +20,8 @@ import JobDetailModal from "./JobDetailModal";
 import { MetricCard } from "./MetricCard";
 import { StatusBadge } from "./StatusBadge";
 
+
+
 interface AgentHealth {
   status: "ok" | "error" | "offline";
   lastCheck: number;
@@ -37,24 +37,47 @@ interface Metrics {
   lastJobTime: number;
 }
 
+interface Agent {
+  id: string;
+  name: string;
+  status: "running" | "stopped" | "error";
+  uptime: number;
+  uptimeSeconds: number;
+  clients: number;
+  totalJobs: number;
+  completedJobs: number;
+  failedJobs: number;
+  successRate: number;
+  capabilities?: string[];
+}
+
+
+
 export default function Dashboard() {
-  const { jobs, metrics: storeMetrics, setJobs } = useJobStore();
-  const { logs, connectionStatus, addLog } = useSSE();
+  const { jobs, metrics: storeMetrics } = useJobStore();
+  const sseHook = useSSE();
+  const logs = (sseHook as any)?.logs || [];
+  const connectionStatus = (sseHook as any)?.connectionStatus || "disconnected";
+  const addLog = (sseHook as any)?.addLog || (() => {})
   
-  const [health, setHealth] = useState<AgentHealth>({
-    status: "offline",
-    lastCheck: 0,
-  });
+const [health, setHealth] = useState<AgentHealth>({
+status: "offline",
+    lastCheck: 0
+});
+  
+  const [agentInfo, setAgentInfo] = useState<Agent | null>(null);
+  const [agentLoading, setAgentLoading] = useState<boolean>(false);
+
   
   // Metrics from API polling
-  const [apiMetrics, setApiMetrics] = useState<Metrics>({
-    uptime: 0,
-    totalJobs: 0,
-    completedJobs: 0,
-    failedJobs: 0,
-    avgResponseTime: 0,
-    lastJobTime: 0,
-  });
+const [apiMetrics, setApiMetrics] = useState<Metrics>({
+uptime: 0,
+totalJobs: 0,
+completedJobs: 0,
+failedJobs: 0,
+avgResponseTime: 0,
+    lastJobTime: 0
+});
 
   // Client-only rendering to prevent SSR/CSR mismatches
   const [mounted, setMounted] = useState(false);
@@ -89,11 +112,13 @@ export default function Dashboard() {
         }
         
         // Fetch real metrics from agents API
+        setAgentLoading(true);
         const metricsRes = await fetch(`${apiUrl}/api/agents`);
         if (metricsRes.ok) {
           const { agents } = await metricsRes.json();
           if (agents && agents.length > 0) {
             const agent = agents[0];
+            setAgentInfo(agent);
             const newMetrics = {
               uptime: agent.uptime || 0,
               totalJobs: agent.totalJobs || 0,
@@ -103,13 +128,14 @@ export default function Dashboard() {
               lastJobTime: agent.lastJobTime || 0,
             };
             setApiMetrics(newMetrics);
-            
-            // Optional: sync store jobs count if vastly different?
-            // For now, trust local store for counts as it's real-time
           }
         }
+        setAgentLoading(false);
+        
       } catch (e) {
         setHealth({ status: "offline", lastCheck: Date.now() });
+        setAgentLoading(false);
+
       }
     };
 
@@ -126,7 +152,7 @@ export default function Dashboard() {
   }, [logs]);
 
   const abortCurrentJob = async () => {
-    const processingJob = jobs.find((j) => j.status === "processing");
+    const processingJob = jobs.find((j: Job) => j.status === "processing");
     if (!processingJob) return;
     try {
       const isLocal =
@@ -139,9 +165,6 @@ export default function Dashboard() {
       await fetch(`${apiUrl}/control/stop`, { method: "POST" });
       addLog("info", "Job aborted by operator");
       
-      // Update job status in store via useJobStore logic implicitly handled by SSE event eventually,
-      // but we can optimistically update if we want.
-      // Since useJobStore is available, let's update it.
       useJobStore.getState().upsertJob(processingJob.id, "failed", { result: "Aborted by operator" });
       
     } catch (e) {
@@ -152,7 +175,7 @@ export default function Dashboard() {
   const retryLastJob = async () => {
     const lastCompleted = [...jobs]
       .reverse()
-      .find((j) => j.status === "completed");
+      .find((j: Job) => j.status === "completed");
     if (!lastCompleted) return;
     try {
       const isLocal =
@@ -172,7 +195,7 @@ export default function Dashboard() {
   const exportRun = () => {
     const runData = {
       timestamp: new Date().toISOString(),
-      jobs: jobs.slice(0, 10).map((j) => ({
+      jobs: jobs.slice(0, 10).map((j: Job) => ({
         id: j.id,
         prompt: j.prompt,
         result: j.result,
@@ -289,38 +312,41 @@ export default function Dashboard() {
       <section className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <MetricCard
           label="Uptime"
-          value={formatUptime(Date.now() - displayMetrics.uptime)}
+          metricKey="uptime"
           icon={Activity}
           color="cyan"
           suppressHydrationWarning
         />
         <MetricCard
           label="Total Jobs"
-          value={displayMetrics.totalJobs.toString()}
+          metricKey="totalJobs"
           icon={Zap}
           color="magenta"
         />
         <MetricCard
           label="Completed"
-          value={displayMetrics.completedJobs.toString()}
+          metricKey="completedJobs"
           icon={CheckCircle}
           color="green"
         />
         <MetricCard
           label="Failed"
-          value={displayMetrics.failedJobs.toString()}
+          metricKey="failedJobs"
           icon={AlertTriangle}
           color="red"
         />
         <MetricCard
           label="Success Rate"
-          value={`${displayMetrics.successRate}%`}
+          metricKey="successRate"
           icon={Activity}
           color="cyan"
         />
       </section>
 
-      <main className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-140px)]">
+
+
+      {/* Operations Layout */}
+      <main className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-900px)] min-h-[500px]">
         {/* Left Column: Job Queue */}
         <div className="lg:col-span-2 flex flex-col gap-6 h-full overflow-hidden">
           {/* Active Jobs */}
@@ -330,8 +356,8 @@ export default function Dashboard() {
             </h2>
             <div className="h-[calc(100%-3rem)] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
               <AnimatePresence>
-                {jobs.filter(
-                  (j) => j.status === "processing" || j.status === "received",
+                {jobs.filter((j: Job) =>
+                  j.status === "processing" || j.status === "received",
                 ).length === 0 && (
                   <div className="text-center text-gray-500 py-10 italic">
                     No active operations. Waiting for command...
@@ -339,9 +365,9 @@ export default function Dashboard() {
                 )}
                 {jobs
                   .filter(
-                    (j) => j.status === "processing" || j.status === "received",
+                    (j: Job) => j.status === "processing" || j.status === "received",
                   )
-                  .map((job) => (
+                  .map((job: Job) => (
                     <JobCard
                       key={job.id}
                       job={job}
@@ -361,10 +387,10 @@ export default function Dashboard() {
             <div className="h-[calc(100%-3rem)] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
               {jobs
                 .filter(
-                  (j) => j.status === "completed" || j.status === "failed",
+                  (j: Job) => j.status === "completed" || j.status === "failed",
                 )
                 .slice(0, 5)
-                .map((job) => (
+                .map((job: Job) => (
                   <JobCard
                     key={job.id}
                     job={job}
@@ -372,7 +398,7 @@ export default function Dashboard() {
                   />
                 ))}
               {jobs.filter(
-                (j) => j.status === "completed" || j.status === "failed",
+                (j: Job) => j.status === "completed" || j.status === "failed",
               ).length === 0 && (
                 <div className="text-center text-gray-500 py-10 italic">
                   System idle. No recent history.
@@ -394,7 +420,7 @@ export default function Dashboard() {
             className="mt-6 flex-1 overflow-y-auto space-y-1 p-2 custom-scrollbar"
             ref={scrollRef}
           >
-            {logs.map((log) => (
+            {logs.map((log: typeof logs[0]) => (
               <motion.div
                 key={log.id}
                 initial={{ opacity: 0, x: -10 }}
