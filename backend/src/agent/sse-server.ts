@@ -127,9 +127,19 @@ export class SSEServer {
             this.clients.delete(res);
           }
         }, 15_000);
+        // Connection timeout - cleanup stalled clients after 90s (Railway edge proxy timeout)
+        const timeout = setTimeout(() => {
+          try {
+            res.end();
+          } catch {}
+          clearInterval(ping);
+          this.clients.delete(res);
+          console.log(`[SSE] Client timeout after 90s. Total: ${this.clients.size}`);
+        }, 90_000);
 
         req.on('close', () => {
           clearInterval(ping);
+          clearTimeout(timeout);
           this.clients.delete(res);
           console.log(`[SSE] Client disconnected. Total: ${this.clients.size}`);
         });
