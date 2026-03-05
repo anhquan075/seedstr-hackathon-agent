@@ -5,6 +5,7 @@ import type { EventBus } from '../core/event-bus.js';
 import type { AgentConfig, ApprovalEventData, BrainOutput } from '../types.js';
 import { SeedstrAPIClient } from '../api-client.js';
 
+import archiver from 'archiver';
 type AutonomyMode = 'manual' | 'supervised' | 'autonomous';
 
 interface JobMetadata {
@@ -144,11 +145,18 @@ export class Packer {
     const files = this.collectFilesFromDir(buildDir);
     console.log(`[Packer] Collected ${files.length} files for upload`);
 
-    const uploadedFiles = files.map((f) => ({
-      name: path.basename(f.path),
-      content: Buffer.from(f.content, 'utf-8').toString('base64'),
-      type: this.inferFileType(path.extname(f.path)),
-    }));
+    // Create ZIP file from build directory
+    console.log(`[Packer] Creating ZIP archive...`);
+    const zipBuffer = await this.createZipFile(buildDir);
+    console.log(`[Packer] ZIP created: ${zipBuffer.length} bytes`);
+
+    // Upload ZIP file
+    const zipFileName = `build-${jobId}.zip`;
+    const uploadedFiles = [{
+      name: zipFileName,
+      content: zipBuffer.toString('base64'),
+      type: 'application/zip',
+    }];
 
     const uploadResponse = await this.apiClient.uploadFiles(uploadedFiles);
     const submitResponse = await this.apiClient.submitResponse(jobId, brainOutput.rawResponse, uploadResponse.files);
@@ -160,7 +168,7 @@ export class Packer {
       responseId: submitResponse.responseId || jobId,
       timestamp: Date.now(),
       responseType: 'FILE',
-      uploadedFiles: uploadedFiles.map((f) => ({ name: f.name, size: f.content.length })),
+      uploadedFiles: files.map((f) => ({ name: path.basename(f.path), size: f.content.length })),
     });
 
     this.cleanupBuildDir(buildDir);
@@ -215,6 +223,20 @@ export class Packer {
 
     return files;
   }
+  private async createZipFile(buildDir: string): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      const archive = archiver('zip', { zlib: { level: 9 } });
+
+      archive.on('data', (chunk: Buffer) => chunks.push(chunk));
+      archive.on('end', () => resolve(Buffer.concat(chunks)));
+      archive.on('error', (err: Error) => reject(err));
+
+      archive.directory(buildDir, false);
+      archive.finalize();
+    });
+  }
+
 
   private cleanupBuildDir(buildDir: string): void {
     try {
