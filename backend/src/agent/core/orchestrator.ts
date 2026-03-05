@@ -94,6 +94,13 @@ export class Orchestrator {
   }
 
   /**
+   * Get active job count (for capability tracking)
+   */
+  getActiveJobCount(): number {
+    return this.inFlightJobs.size;
+  }
+
+  /**
    * Graceful shutdown: wait for in-flight jobs to complete
    */
   async shutdown(timeoutMs: number = 30000): Promise<void> {

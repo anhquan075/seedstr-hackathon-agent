@@ -1,12 +1,13 @@
 /**
  * Composition Root / Dependency Injection Container
  * 
- * Wires all 6 modular components (Watcher, Brain, Builder, Packer, Bridge, Orchestrator)
+ * Wires all 7 modular components (Watcher, SeedstrPoller, Brain, Builder, Packer, Bridge, Orchestrator)
  * to a central EventBus with proper initialization order.
  * 
  * Architecture:
  * - EventBus: Central event coordination hub
- * - Watcher: Monitors .agent-prompt file for new jobs
+ * - Watcher: Monitors .agent-prompt file for new jobs (local polling)
+ * - SeedstrPoller: Polls Seedstr API v2 for jobs (live Seedstr polling)
  * - Brain: Invokes LLM to think through problem
  * - Builder: Compiles solution (code + tests)
  * - Packer: Uploads files & submits response
@@ -22,13 +23,16 @@ import { Brain } from './modules/brain.js';
 import { Builder } from './modules/builder.js';
 import { Packer } from './modules/packer.js';
 import { Bridge } from './modules/bridge.js';
+import { SeedstrPoller } from './modules/poller.js';
 import { SSEServer } from './sse-server.js';
 import { logger } from './logger.js';
+import { SeedstrAPIClient } from './api-client.js';
 
 export interface ComposedAgentPipeline {
   eventBus: EventBus;
   orchestrator: Orchestrator;
   watcher: Watcher;
+  seedstrPoller: SeedstrPoller;
   brain: Brain;
   builder: Builder;
   packer: Packer;
@@ -58,9 +62,35 @@ export function createAgentPipeline(
 
   // 3. Create worker modules in order of execution flow:
 
-  // Watcher: Monitors for incoming jobs
+  // Watcher: Monitors for incoming jobs (local file polling)
   const watcher = new Watcher(eventBus, config);
   logger.debug('[CompositionRoot] Watcher created');
+
+  // SeedstrPoller: Polls Seedstr API for incoming jobs (live Seedstr polling)
+  // Initialize capabilities with real agent reputation from Seedstr API
+  let agentCapabilities = {
+    agentReputation: config.reputation || 0,
+    minBudgetRequired: 1.0, // 1 USD minimum per README requirement
+    maxConcurrentJobs: 3, // Support up to 3 concurrent jobs
+    get activeJobCount() { return orchestrator.getActiveJobCount(); }, // Dynamically linked to orchestrator
+  };
+
+  // Fetch real agent reputation from Seedstr API (async, non-blocking startup)
+  const apiClient = new SeedstrAPIClient(config.seedstrApiKey || config.apiKey);
+  apiClient.getMeV2()
+    .then((agentData) => {
+      if (agentData && typeof agentData.reputation === 'number') {
+        agentCapabilities.agentReputation = agentData.reputation;
+        logger.info(`[CompositionRoot] Updated agent reputation to ${agentData.reputation}`);
+      }
+    })
+    .catch((error) => {
+      logger.warn('[CompositionRoot] Failed to fetch agent reputation, using default (0):', error);
+      // Falls back to config.reputation or 0
+    });
+
+  const seedstrPoller = new SeedstrPoller(eventBus, config, agentCapabilities);
+  logger.debug('[CompositionRoot] SeedstrPoller created');
 
   // Brain: Thinks through problem using LLM
   const brain = new Brain(eventBus, config);
@@ -77,6 +107,17 @@ export function createAgentPipeline(
   // Bridge: Broadcasts internal events to SSE clients
   const bridge = new Bridge(eventBus, sseServer);
   logger.debug('[CompositionRoot] Bridge created');
+
+  // Coordinate duplicate prevention: mark jobs as processed in poller
+  eventBus.on('job_completed', (data) => {
+    seedstrPoller.markJobProcessed(data.id);
+    logger.debug(`[CompositionRoot] Marked job ${data.id} as processed after completion`);
+  });
+
+  eventBus.on('job_failed', (data) => {
+    seedstrPoller.markJobProcessed(data.id);
+    logger.debug(`[CompositionRoot] Marked job ${data.id} as processed after failure`);
+  });
 
   // 4. Wire event handlers for critical flows
   // ============================================
@@ -104,15 +145,31 @@ export function createAgentPipeline(
           skills,
           jobType,
         });
+        
+        // Emit job_accepted to match template workflow
+        eventBus.emit('job_accepted', {
+          id: data.id,
+          prompt: data.prompt,
+          budget,
+          jobType,
+          timestamp: Date.now(),
+        });
       }
 
       const brainOutput = await brain.generateFromPrompt(data.id, data.prompt, budget);
-
-      // Detect response type (TEXT vs FILE)
+      
       const responseType = brain.getResponseType({
         budget,
         description,
         prompt: data.prompt,
+      });
+
+      // Emit job_generated to match template workflow
+      eventBus.emit('job_generated', {
+        id: data.id,
+        output: brainOutput,
+        responseType,
+        timestamp: Date.now(),
       });
 
       eventBus.emit('job_processing', {
@@ -133,6 +190,7 @@ export function createAgentPipeline(
         budget,
         skills,
         jobType,
+        isLocal: data.isLocal,
       });
 
       logger.info(`[CompositionRoot] Job ${data.id} completed`);
@@ -152,6 +210,7 @@ export function createAgentPipeline(
     eventBus,
     orchestrator,
     watcher,
+    seedstrPoller,
     brain,
     builder,
     packer,
@@ -179,6 +238,8 @@ export function createAgentPipeline(
         watcher.start();
         logger.info('[ComposedAgentPipeline] Watcher polling started');
 
+        seedstrPoller.start();
+        logger.info('[ComposedAgentPipeline] SeedstrPoller started');
         logger.info('[ComposedAgentPipeline] ✓ Agent pipeline RUNNING');
       } catch (error) {
         logger.error('[ComposedAgentPipeline] Startup failed:', { error });
@@ -197,6 +258,9 @@ export function createAgentPipeline(
         // 1. Stop watcher polling
         watcher.stop();
         logger.info('[ComposedAgentPipeline] Watcher polling stopped');
+
+        seedstrPoller.stop();
+        logger.info('[ComposedAgentPipeline] SeedstrPoller stopped');
 
         bridge.stop();
         logger.info('[ComposedAgentPipeline] Bridge stopped');
