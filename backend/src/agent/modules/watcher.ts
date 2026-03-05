@@ -49,6 +49,49 @@ export class Watcher {
   }
 
   /**
+   * Pause polling (soft pause - internal state tracking)
+   * Jobs in progress will continue; no new polls will occur
+   */
+  pause(): void {
+    if (!this.isRunning) {
+      console.warn('[Watcher] Not running, cannot pause');
+      return;
+    }
+
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+      console.log('[Watcher] Polling paused');
+    }
+  }
+
+  /**
+   * Resume polling after pause
+   */
+  resume(): void {
+    if (!this.isRunning) {
+      console.warn('[Watcher] Not running, cannot resume');
+      return;
+    }
+
+    if (this.pollInterval) {
+      console.warn('[Watcher] Already polling');
+      return;
+    }
+
+    // Resume polling every 2 seconds
+    this.pollInterval = setInterval(() => this.poll(), 2000);
+    console.log('[Watcher] Polling resumed');
+  }
+
+  /**
+   * Check if currently paused
+   */
+  isPaused(): boolean {
+    return this.isRunning && !this.pollInterval;
+  }
+
+  /**
    * Poll for new prompts in project root
    */
   private poll(): void {

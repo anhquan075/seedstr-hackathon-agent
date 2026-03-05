@@ -24,6 +24,7 @@ export class AgentRunner extends EventEmitter {
   private sseServer: SSEServer;
   private pipeline?: ComposedAgentPipeline;
   private config: AgentConfig;
+  private lastExecutionState?: { prompt: string; jobId: string; timestamp: number };
 
   constructor(config: AgentConfig) {
     super();
@@ -93,48 +94,96 @@ export class AgentRunner extends EventEmitter {
    */
   private setupSSEHandlers(): void {
     this.sseServer.setControlHandlers({
-      // Pause polling
       stop: async () => {
         if (this.pipeline) {
-          // Pause watcher polling (jobs in progress continue)
           logger.info('[Control] Pause requested');
-          // TODO: Implement watcher.pause() method
+          this.pipeline.watcher.pause();
+          logger.info('[Control] Agent polling paused (in-progress jobs continue)');
         }
       },
 
-      // Resume polling
       start: async () => {
         if (this.pipeline) {
-          // Resume watcher polling
           logger.info('[Control] Resume requested');
-          // TODO: Implement watcher.resume() method
+          this.pipeline.watcher.resume();
+          logger.info('[Control] Agent polling resumed');
         }
       },
 
-      // Submit manual prompt (debugging)
       prompt: async (prompt: string) => {
+        if (!this.pipeline) {
+          logger.warn('[Control] Pipeline not initialized');
+          return;
+        }
         logger.info('[Control] Manual prompt received', { prompt });
-        // TODO: Implement manual prompt handling
-        // This would call Brain module directly for testing
+        
+        try {
+const jobId = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const budget = 100000;
+          
+          
+          const brainOutput = await this.pipeline.brain.generateFromPrompt(jobId, prompt, budget);
+          
+          this.lastExecutionState = {
+            prompt,
+            jobId,
+            timestamp: Date.now(),
+          };
+          
+          logger.info('[Control] Manual prompt completed', {
+            jobId,
+            responseLength: String(brainOutput).length,
+          });
+          
+        } catch (error) {
+          logger.error('[Control] Manual prompt processing failed:', error);
+        }
       },
 
-      // Get current state
+      // Get current agent state
       getState: () => {
         return {
           running: this.isRunning,
+          paused: this.pipeline ? this.pipeline.watcher.isPaused() : false,
           timestamp: Date.now(),
         };
       },
 
-      // Get execution history (not implemented in v2 yet)
       getHistory: () => {
-        return [];
+        return this.lastExecutionState ? [this.lastExecutionState] : [];
       },
 
-      // Replay last execution
       replayLast: async () => {
-        logger.info('[Control] Replay last requested');
-        // TODO: Implement replay logic
+        if (!this.pipeline || !this.lastExecutionState) {
+          logger.warn('[Control] No previous execution to replay');
+          return;
+        }
+        
+        logger.info('[Control] Replay last requested', { previousJobId: this.lastExecutionState.jobId });
+        
+        try {
+          const { prompt } = this.lastExecutionState;
+          const replayJobId = `replay-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const budget = 100000;
+          
+          logger.info('[Control] Replaying execution with jobId:', replayJobId);
+          
+          const brainOutput = await this.pipeline.brain.generateFromPrompt(replayJobId, prompt, budget);
+          
+          this.lastExecutionState = {
+            prompt,
+            jobId: replayJobId,
+            timestamp: Date.now(),
+          };
+          
+          logger.info('[Control] Replay completed', {
+            replayJobId,
+            responseLength: String(brainOutput).length,
+          });
+          
+        } catch (error) {
+          logger.error('[Control] Replay failed:', error);
+        }
       },
     });
   }
