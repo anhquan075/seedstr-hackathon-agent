@@ -11,7 +11,8 @@
     "update-skills": "npx tsx src/scripts/update-skills.ts",
     "test": "jest",
     "synthetic": "node dist/agent/synthetic-test.js",
-    "production-e2e": "npm run build && node dist/agent/production-e2e-test.js"
+    "production-e2e": "npm run build && node dist/agent/production-e2e-test.js",
+    "smoke-test:sse": "npm run build && npx tsx src/tests/sse-smoke-test.ts"
   },
   "dependencies": {
     "@openrouter/ai-sdk-provider": "^2.2.3",
