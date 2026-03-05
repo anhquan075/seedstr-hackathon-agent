@@ -1,4 +1,59 @@
-<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
-  <rect width="32" height="32" rx="6" fill="#F7931A"/>
-  <text x="50%" y="50%" text-anchor="middle" dy=".35em" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#FFFFFF">S</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Background -->
+  <rect width="256" height="256" fill="#050505"/>
+  
+  <!-- Circuit Brain Design -->
+  <!-- Main brain outline - cyan -->
+  <path d="M 128 40 C 100 40 80 55 75 75 C 70 65 60 60 50 65 C 45 68 43 75 45 82 C 47 89 45 95 45 102 C 45 120 50 135 60 148 C 55 155 53 163 55 172 C 57 181 63 188 71 192 C 79 196 88 195 95 190 C 105 205 120 215 140 218 C 145 225 155 228 163 225 C 171 222 176 215 178 207 C 185 205 190 200 195 193 C 205 185 210 172 210 158 C 210 145 207 135 200 125 C 205 118 208 108 208 98 C 208 85 203 73 195 65 C 187 57 175 52 162 52 C 155 52 148 54 142 58 C 137 47 130 40 128 40 Z" 
+        fill="none" stroke="#00f3ff" stroke-width="3" stroke-linejoin="round"/>
+  
+  <!-- Circuit board patterns inside brain - magenta highlights -->
+  <!-- Left hemisphere circuits -->
+  <line x1="75" y1="90" x2="95" y2="90" stroke="#ff00ff" stroke-width="2"/>
+  <circle cx="95" cy="90" r="3" fill="#ff00ff"/>
+  <line x1="95" y1="90" x2="95" y2="110" stroke="#ff00ff" stroke-width="2"/>
+  <circle cx="95" cy="110" r="3" fill="#ff00ff"/>
+  <line x1="95" y1="110" x2="75" y2="110" stroke="#ff00ff" stroke-width="2"/>
+  <circle cx="75" cy="110" r="3" fill="#ff00ff"/>
+  
+  <line x1="65" y1="130" x2="85" y2="130" stroke="#ff00ff" stroke-width="2"/>
+  <circle cx="85" cy="130" r="3" fill="#ff00ff"/>
+  <line x1="85" y1="130" x2="85" y2="150" stroke="#ff00ff" stroke-width="2"/>
+  <circle cx="85" cy="150" r="3" fill="#ff00ff"/>
+  
+  <!-- Right hemisphere circuits -->
+  <line x1="160" y1="85" x2="180" y2="85" stroke="#ff00ff" stroke-width="2"/>
+  <circle cx="180" cy="85" r="3" fill="#ff00ff"/>
+  <line x1="180" y1="85" x2="180" y2="105" stroke="#ff00ff" stroke-width="2"/>
+  <circle cx="180" cy="105" r="3" fill="#ff00ff"/>
+  <line x1="180" y1="105" x2="160" y2="105" stroke="#ff00ff" stroke-width="2"/>
+  <circle cx="160" cy="105" r="3" fill="#ff00ff"/>
+  
+  <line x1="170" y1="125" x2="190" y2="125" stroke="#ff00ff" stroke-width="2"/>
+  <circle cx="190" cy="125" r="3" fill="#ff00ff"/>
+  <line x1="190" y1="125" x2="190" y2="145" stroke="#ff00ff" stroke-width="2"/>
+  <circle cx="190" cy="145" r="3" fill="#ff00ff"/>
+  
+  <!-- Central processor node -->
+  <circle cx="128" cy="120" r="8" fill="none" stroke="#bd00ff" stroke-width="3"/>
+  <circle cx="128" cy="120" r="4" fill="#00f3ff"/>
+  
+  <!-- Connection lines to central node -->
+  <line x1="95" y1="110" x2="120" y2="120" stroke="#00f3ff" stroke-width="1.5" opacity="0.6"/>
+  <line x1="160" y1="105" x2="136" y2="120" stroke="#00f3ff" stroke-width="1.5" opacity="0.6"/>
+  <line x1="85" y1="150" x2="120" y2="128" stroke="#00f3ff" stroke-width="1.5" opacity="0.6"/>
+  <line x1="190" y1="145" x2="136" y2="128" stroke="#00f3ff" stroke-width="1.5" opacity="0.6"/>
+  
+  <!-- Glow effect -->
+  <defs>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <circle cx="128" cy="120" r="4" fill="#00f3ff" filter="url(#glow)"/>
 </svg>
