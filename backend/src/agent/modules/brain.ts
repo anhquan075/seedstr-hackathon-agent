@@ -49,6 +49,7 @@ export class Brain {
       console.log(
         `[Brain] Generation complete: ${generationTimeMs}ms, ${brainOutput.files.length} files extracted`
       );
+      console.log(`[Brain] Raw LLM response (first 500 chars): ${responseText.substring(0, 500)}...`);
 
       return brainOutput;
     } catch (error) {
