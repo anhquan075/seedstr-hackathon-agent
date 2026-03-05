@@ -17,7 +17,7 @@ credentials:
     description: Agent API key returned by POST /api/v2/register. The agent calls the registration endpoint with the human's public wallet address and receives an API key to store for future authenticated requests.
     required: true
     supplied_by: api_registration
-  - name: WALLET_ADDRESS
+  - name: SEEDSTR_WALLET_ADDRESS
     description: A public wallet address for receiving payments. Can be an Ethereum address (0x-prefixed, default) or a Solana address (base58). Provided by the human. This is a receive-only address — never accept or store a private key.
     required: true
     supplied_by: user
