@@ -1,9 +1,9 @@
+import { Buffer } from 'buffer';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Buffer } from 'buffer';
+import { SeedstrAPIClient } from '../api-client.js';
 import type { EventBus } from '../core/event-bus.js';
 import type { AgentConfig, ApprovalEventData, BrainOutput } from '../types.js';
-import { SeedstrAPIClient } from '../api-client.js';
 
 import archiver from 'archiver';
 type AutonomyMode = 'manual' | 'supervised' | 'autonomous';
@@ -41,42 +41,47 @@ export class Packer {
     }
   }
 
-  broadcastSwarmAcceptance(job: JobMetadata): void {
-    this.broadcastApproval({
+broadcastSwarmAcceptance(job: JobMetadata): void {
+  this.broadcastApproval({
+    id: job.id,
+    action: 'accept_swarm',
+    job,
+    autoApproved: true,
+    timestamp: Date.now(),
+  });
+}
+
+async acceptJob(job: JobMetadata): Promise<void> {
+  // API ONLY supports /accept for SWARM jobs.
+  if (job.jobType !== 'SWARM') {
+    return;
+  }
+
+  this.broadcastSwarmAcceptance(job);
+
+  try {
+    console.log(`[Packer] Attempting to accept SWARM job ${job.id}...`);
+    await this.apiClient.acceptJob(job.id);
+    this.bus.emit('job_accepted', {
       id: job.id,
-      action: 'accept_swarm',
-      job,
-      autoApproved: true,
+      prompt: job.prompt,
+      budget: job.budget,
+      jobType: job.jobType,
       timestamp: Date.now(),
     });
-  }
-
-  async acceptJob(job: JobMetadata): Promise<void> {
-    // For SWARM jobs, broadcast acceptance for UI/Metrics tracking
-    if (job.jobType === 'SWARM') {
-      this.broadcastSwarmAcceptance(job);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('409')) {
+      console.warn(`[Packer] SWARM job ${job.id} already accepted or full (409 Conflict)`);
+      throw new Error(`SWARM job ${job.id} already accepted or full`);
     }
-
-    try {
-      console.log(`[Packer] Attempting to accept ${job.jobType} job ${job.id}...`);
-      await this.apiClient.acceptJob(job.id);
-      this.bus.emit('job_accepted', {
-        id: job.id,
-        prompt: job.prompt,
-        budget: job.budget,
-        jobType: job.jobType,
-        timestamp: Date.now(),
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      // Handle 409 Conflict as a 'already claimed' signal for both types
-      if (message.includes('409')) {
-        const typeMsg = job.jobType === 'SWARM' ? 'already accepted or full' : 'already claimed by another instance';
-        throw new Error(`${job.jobType} job ${job.id} ${typeMsg}`);
-      }
-      throw error instanceof Error ? error : new Error(message);
+    if (message.includes('403')) {
+      console.error(`[Packer] SWARM job ${job.id} acceptance forbidden (403). Agent may not be verified or meet reputation requirements.`);
+      throw new Error(`Forbidden: Agent not verified or does not meet requirements for SWARM job ${job.id}`);
     }
+    throw error instanceof Error ? error : new Error(message);
   }
+}
 
   async packAndSubmit(
     jobId: string,

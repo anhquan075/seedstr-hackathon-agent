@@ -1,9 +1,9 @@
-import type { EventBus } from '../core/event-bus.js';
-import type { AgentConfig } from '../types.js';
 import { SeedstrAPIClient } from '../api-client.js';
+import { config as configManager } from '../config.js';
+import type { EventBus } from '../core/event-bus.js';
 import { JobEligibilityValidator, type AgentCapabilities } from '../job-eligibility-validator.js';
 import { logger } from '../logger.js';
-import { config as configManager } from '../config.js';
+import type { AgentConfig } from '../types.js';
 
 export class SeedstrPoller {
   private isRunning = false;
@@ -23,8 +23,8 @@ export class SeedstrPoller {
   }
 
   private loadPersistentJobs(): void {
-    const persistentJobs = configManager.get('processedJobs') || [];
-    persistentJobs.forEach(id => {
+    const persistentJobs = (configManager.get('processedJobs') || []) as string[];
+    persistentJobs.forEach((id) => {
       this.processedJobIds.add(id);
     });
     logger.info(`[SeedstrPoller] Loaded ${this.processedJobIds.size} persistent jobs`);
@@ -50,7 +50,10 @@ export class SeedstrPoller {
     if (!this.isRunning) return;
 
     this.isRunning = false;
-    if (this.pollInterval) clearInterval(this.pollInterval);
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
     logger.info('[SeedstrPoller] Stopped');
   }
 
@@ -89,9 +92,13 @@ export class SeedstrPoller {
   markJobProcessed(jobId: string): void {
     this.processedJobIds.add(jobId);
     configManager.addProcessedJob(jobId);
+    // Keep in-memory set aligned with persistent retention limit.
+    if (this.processedJobIds.size > 1000) {
+      const oldestId = Array.from(this.processedJobIds)[0];
+      this.processedJobIds.delete(oldestId);
+    }
     logger.debug(`[SeedstrPoller] Marked job ${jobId} as processed (persisted)`);
   }
-
   clearProcessedJobs(): void {
     this.processedJobIds.clear();
     logger.info('[SeedstrPoller] Cleared processed jobs set');

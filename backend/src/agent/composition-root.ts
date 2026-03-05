@@ -15,18 +15,18 @@
  * - SSEServer: Real-time event stream to frontend
  */
 
-import type { AgentConfig } from './types.js';
+import { SeedstrAPIClient } from './api-client.js';
 import { EventBus } from './core/event-bus.js';
 import { Orchestrator } from './core/orchestrator.js';
-import { Watcher } from './modules/watcher.js';
+import { logger } from './logger.js';
 import { Brain } from './modules/brain.js';
+import { Bridge } from './modules/bridge.js';
 import { Builder } from './modules/builder.js';
 import { Packer } from './modules/packer.js';
-import { Bridge } from './modules/bridge.js';
 import { SeedstrPoller } from './modules/poller.js';
+import { Watcher } from './modules/watcher.js';
 import { SSEServer } from './sse-server.js';
-import { logger } from './logger.js';
-import { SeedstrAPIClient } from './api-client.js';
+import type { AgentConfig } from './types.js';
 
 export interface ComposedAgentPipeline {
   eventBus: EventBus;
@@ -68,26 +68,35 @@ export function createAgentPipeline(
 
   // SeedstrPoller: Polls Seedstr API for incoming jobs (live Seedstr polling)
   // Initialize capabilities with real agent reputation from Seedstr API
-  let agentCapabilities = {
-    agentReputation: config.reputation || 0,
-    minBudgetRequired: 0.5, // 0.5 USD minimum requirement
-    maxConcurrentJobs: 3, // Support up to 3 concurrent jobs
-    get activeJobCount() { return orchestrator.getActiveJobCount(); }, // Dynamically linked to orchestrator
-  };
+let agentCapabilities = {
+  agentReputation: config.reputation || 0,
+  minBudgetRequired: 0.5, // 0.5 USD minimum requirement
+  maxConcurrentJobs: 3, // Support up to 3 concurrent jobs
+  get activeJobCount() { return orchestrator.getActiveJobCount(); }, // Dynamically linked to orchestrator
+};
 
-  // Fetch real agent reputation from Seedstr API (async, non-blocking startup)
-  const apiClient = new SeedstrAPIClient(config.seedstrApiKey || config.apiKey);
-  apiClient.getMeV2()
-    .then((agentData) => {
-      if (agentData && typeof agentData.reputation === 'number') {
-        agentCapabilities.agentReputation = agentData.reputation;
-        logger.info(`[CompositionRoot] Updated agent reputation to ${agentData.reputation}`);
-      }
-    })
-    .catch((error) => {
-      logger.warn('[CompositionRoot] Failed to fetch agent reputation, using default (0):', error);
-      // Falls back to config.reputation or 0
-    });
+// Fetch real agent reputation from Seedstr API (async, non-blocking startup)
+const apiClient = new SeedstrAPIClient(config.seedstrApiKey || config.apiKey);
+apiClient.getMeV2()
+  .then((agentData) => {
+    if (agentData && typeof agentData.reputation === 'number') {
+      agentCapabilities.agentReputation = agentData.reputation;
+      logger.info(`[CompositionRoot] Updated agent reputation to ${agentData.reputation}`);
+    }
+    if (agentData && agentData.verification && agentData.verification.isVerified === false) {
+      logger.error('************************************************');
+      logger.error('AGENT NOT VERIFIED ON SEEDSTR!');
+      logger.error('Please verify your agent via Twitter as per skill.md');
+      logger.error('Agent ID: ' + agentData.id);
+      logger.error('************************************************');
+    } else if (agentData && agentData.verification && agentData.verification.isVerified === true) {
+      logger.info(`[CompositionRoot] Agent verified: ${agentData.verification.ownerTwitter}`);
+    }
+  })
+  .catch((error) => {
+    logger.warn('[CompositionRoot] Failed to fetch agent reputation, using default (0):', error);
+    // Falls back to config.reputation or 0
+  });
 
   const seedstrPoller = new SeedstrPoller(eventBus, config, agentCapabilities);
   logger.debug('[CompositionRoot] SeedstrPoller created');
@@ -108,20 +117,8 @@ export function createAgentPipeline(
   const bridge = new Bridge(eventBus, sseServer);
   logger.debug('[CompositionRoot] Bridge created');
 
-  // Coordinate duplicate prevention: mark jobs as processed in poller
-  eventBus.on('job_completed', (data) => {
-    seedstrPoller.markJobProcessed(data.id);
-    logger.debug(`[CompositionRoot] Marked job ${data.id} as processed after completion`);
-  });
-
-  eventBus.on('job_failed', (data) => {
-    seedstrPoller.markJobProcessed(data.id);
-    logger.debug(`[CompositionRoot] Marked job ${data.id} as processed after failure`);
-  });
-  eventBus.on('job_processing', (data) => {
-    seedstrPoller.markJobProcessed(data.id);
-    logger.debug(`[CompositionRoot] Marked job ${data.id} as processed when processing started`);
-  });
+  // Job lifecycle is managed by orchestrator's in-flight tracking
+  // No additional duplicate prevention needed here
 
   // 4. Wire event handlers for critical flows
   // ============================================
