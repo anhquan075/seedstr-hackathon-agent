@@ -8,7 +8,7 @@ import { logger } from './logger.js';
  * 1. Job status validation (must be OPEN)
  * 2. Expiry check (not expired)
  * 3. Reputation threshold validation
- * 4. Budget sufficiency check
+    4. Budget sufficiency check (0.5 USD minimum, no maximum)
  * 5. SWARM-specific validation
  * 6. Concurrent job limit
  * 7. Job completion before expiry (SWARM deadline enforcement)
@@ -62,18 +62,23 @@ export class JobEligibilityValidator {
       };
     }
 
-    // Check 4: Budget sufficiency
+    // Check 4: Budget sufficiency - STRICTLY enforce 0.5 USD minimum, NO MAXIMUM LIMIT
+    // For SWARM jobs, check budgetPerAgent; for standard jobs, check budget
     // For SWARM jobs, check budgetPerAgent; for standard jobs, check budget
     const jobBudget = job.jobType === 'SWARM' 
       ? (job.budgetPerAgent || 0)
       : (job.budget || 0);
     
-    if (jobBudget < capabilities.minBudgetRequired) {
+    // minBudgetRequired should be set to 0.5 (USD) in config or here directly
+    const minRequired = 0.5;  // USD: ALWAYS 0.5 minimum, no maximum limit
+
+    if (jobBudget < minRequired) {
       return {
         eligible: false,
-        reason: `Job budget ${jobBudget} < minimum required ${capabilities.minBudgetRequired}`,
+        reason: `Job budget ${jobBudget} < minimum required ${minRequired} USD`,
       };
     }
+
 
     // Check 5: Concurrent job limit
     if (capabilities.activeJobCount >= capabilities.maxConcurrentJobs) {
