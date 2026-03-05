@@ -14,7 +14,7 @@ import type { AgentConfig, EngineStage } from '../types.js';
  */
 export class Orchestrator {
   private stage: EngineStage = 'idle';
-  private inFlightJobs = new Map<string, EngineStage>();
+  private inFlightJobs = new Set<string>();
   private maxConcurrentJobs: number;
   private metrics = {
     jobsReceived: 0,
@@ -52,7 +52,7 @@ export class Orchestrator {
         return;
       }
 
-      this.inFlightJobs.set(data.id, 'generating');
+      this.inFlightJobs.add(data.id);
       this.metrics.jobsReceived++;
       this.transitionTo('generating');
       this.bus.emit('job_processing', { id: data.id, stage: 'generating', timestamp: Date.now() });
@@ -88,7 +88,7 @@ export class Orchestrator {
   getState() {
     return {
       stage: this.stage,
-      inFlightJobs: Array.from(this.inFlightJobs.entries()),
+      inFlightJobs: Array.from(this.inFlightJobs),
       metrics: this.metrics,
     };
   }

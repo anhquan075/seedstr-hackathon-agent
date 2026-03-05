@@ -118,22 +118,27 @@ export function createAgentPipeline(
     seedstrPoller.markJobProcessed(data.id);
     logger.debug(`[CompositionRoot] Marked job ${data.id} as processed after failure`);
   });
+  eventBus.on('job_processing', (data) => {
+    seedstrPoller.markJobProcessed(data.id);
+    logger.debug(`[CompositionRoot] Marked job ${data.id} as processed when processing started`);
+  });
 
   // 4. Wire event handlers for critical flows
   // ============================================
 
   // Register SWARM deadline when job is received
-  eventBus.on('job_received', (data) => {
-    const jobType = data.jobType ?? 'STANDARD';
-    packer.registerSwarmDeadline(data.id, jobType);
-    logger.debug(`[CompositionRoot] Registered ${jobType} deadline for job ${data.id}`);
-  });
 
   eventBus.on('job_received', async (data) => {
     try {
+      // 1. Orchestrator handled it synchronously and added to in-flight
+      // 2. Register SWARM deadline
+      const jobType = data.jobType ?? 'STANDARD';
+      packer.registerSwarmDeadline(data.id, jobType);
+      logger.debug(`[CompositionRoot] Registered ${jobType} deadline for job ${data.id}`);
+
+      // 3. Start processing
       logger.info(`[CompositionRoot] Starting generation for job ${data.id}`);
       const budget = data.budget || 1;
-      const jobType = data.jobType ?? 'STANDARD';
       const skills = data.skills ?? [];
       const description = data.description ?? '';
 
