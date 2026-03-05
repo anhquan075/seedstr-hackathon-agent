@@ -51,10 +51,14 @@ export class Packer {
     });
   }
 
-  async acceptSwarmJob(job: JobMetadata): Promise<void> {
-    this.broadcastSwarmAcceptance(job);
+  async acceptJob(job: JobMetadata): Promise<void> {
+    // For SWARM jobs, broadcast acceptance for UI/Metrics tracking
+    if (job.jobType === 'SWARM') {
+      this.broadcastSwarmAcceptance(job);
+    }
 
     try {
+      console.log(`[Packer] Attempting to accept ${job.jobType} job ${job.id}...`);
       await this.apiClient.acceptJob(job.id);
       this.bus.emit('job_accepted', {
         id: job.id,
@@ -65,8 +69,10 @@ export class Packer {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      // Handle 409 Conflict as a 'already claimed' signal for both types
       if (message.includes('409')) {
-        throw new Error(`SWARM job ${job.id} already accepted or full`);
+        const typeMsg = job.jobType === 'SWARM' ? 'already accepted or full' : 'already claimed by another instance';
+        throw new Error(`${job.jobType} job ${job.id} ${typeMsg}`);
       }
       throw error instanceof Error ? error : new Error(message);
     }

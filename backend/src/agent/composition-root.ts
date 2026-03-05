@@ -141,25 +141,15 @@ export function createAgentPipeline(
       const budget = data.budget || 1;
       const skills = data.skills ?? [];
       const description = data.description ?? '';
-
-      if (jobType === 'SWARM') {
-        await packer.acceptSwarmJob({
-          id: data.id,
-          prompt: data.prompt,
-          budget,
-          skills,
-          jobType,
-        });
-        
-        // Emit job_accepted to match template workflow
-        eventBus.emit('job_accepted', {
-          id: data.id,
-          prompt: data.prompt,
-          budget,
-          jobType,
-          timestamp: Date.now(),
-        });
-      }
+      // Always attempt to accept the job (STANDARD or SWARM) before starting generation
+      // This acts as a remote lock in multi-instance environments
+      await packer.acceptJob({
+        id: data.id,
+        prompt: data.prompt,
+        budget,
+        skills,
+        jobType,
+      });
 
       const brainOutput = await brain.generateFromPrompt(data.id, data.prompt, budget);
       
