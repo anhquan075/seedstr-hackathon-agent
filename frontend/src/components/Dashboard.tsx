@@ -13,14 +13,12 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useJobStore, Job } from "../store/jobStore";
 import { useSSE } from "../hooks/useSSE";
+import { Job, useJobStore } from "../store/jobStore";
 import JobCard from "./JobCard";
 import JobDetailModal from "./JobDetailModal";
 import { MetricCard } from "./MetricCard";
 import { StatusBadge } from "./StatusBadge";
-
-
 
 interface AgentHealth {
   status: "ok" | "error" | "offline";
@@ -51,42 +49,39 @@ interface Agent {
   capabilities?: string[];
 }
 
-
-
 export default function Dashboard() {
   const { jobs, metrics: storeMetrics } = useJobStore();
   const sseHook = useSSE();
   const logs = (sseHook as any)?.logs || [];
   const connectionStatus = (sseHook as any)?.connectionStatus || "disconnected";
-  const addLog = (sseHook as any)?.addLog || (() => {})
-  
-const [health, setHealth] = useState<AgentHealth>({
-status: "offline",
-    lastCheck: 0
-});
-  
+  const addLog = (sseHook as any)?.addLog || (() => {});
+
+  const [health, setHealth] = useState<AgentHealth>({
+    status: "offline",
+    lastCheck: 0,
+  });
+
   const [agentInfo, setAgentInfo] = useState<Agent | null>(null);
   const [agentLoading, setAgentLoading] = useState<boolean>(false);
 
-  
   // Metrics from API polling
-const [apiMetrics, setApiMetrics] = useState<Metrics>({
-uptime: 0,
-totalJobs: 0,
-completedJobs: 0,
-failedJobs: 0,
-avgResponseTime: 0,
-    lastJobTime: 0
-});
+  const [apiMetrics, setApiMetrics] = useState<Metrics>({
+    uptime: 0,
+    totalJobs: 0,
+    completedJobs: 0,
+    failedJobs: 0,
+    avgResponseTime: 0,
+    lastJobTime: 0,
+  });
 
   // Client-only rendering to prevent SSR/CSR mismatches
   const [mounted, setMounted] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
-  
+
   useEffect(() => {
     setMounted(true);
   }, []);
-  
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Health Check & Metrics Polling
@@ -101,7 +96,7 @@ avgResponseTime: 0,
           ? "http://localhost:8080"
           : import.meta.env.VITE_API_URL ||
             `${window.location.protocol}//${window.location.host}`;
-        
+
         // Fetch health check
         const healthRes = await fetch(`${apiUrl}/health`);
         if (healthRes.ok) {
@@ -110,7 +105,7 @@ avgResponseTime: 0,
         } else {
           setHealth({ status: "error", lastCheck: Date.now() });
         }
-        
+
         // Fetch real metrics from agents API
         setAgentLoading(true);
         const metricsRes = await fetch(`${apiUrl}/api/agents`);
@@ -131,11 +126,9 @@ avgResponseTime: 0,
           }
         }
         setAgentLoading(false);
-        
       } catch (e) {
         setHealth({ status: "offline", lastCheck: Date.now() });
         setAgentLoading(false);
-
       }
     };
 
@@ -164,9 +157,12 @@ avgResponseTime: 0,
         : import.meta.env.VITE_API_URL || window.location.origin;
       await fetch(`${apiUrl}/control/stop`, { method: "POST" });
       addLog("info", "Job aborted by operator");
-      
-      useJobStore.getState().upsertJob(processingJob.id, "failed", { result: "Aborted by operator" });
-      
+
+      useJobStore
+        .getState()
+        .upsertJob(processingJob.id, "failed", {
+          result: "Aborted by operator",
+        });
     } catch (e) {
       addLog("error", "Failed to abort job");
     }
@@ -219,15 +215,20 @@ avgResponseTime: 0,
 
   // Combine metrics: store has realtime counts, api has uptime/avg
   const displayMetrics = {
-      uptime: apiMetrics.uptime,
-      totalJobs: storeMetrics.totalJobs || apiMetrics.totalJobs,
-      completedJobs: storeMetrics.completedJobs || apiMetrics.completedJobs,
-      failedJobs: storeMetrics.failedJobs || apiMetrics.failedJobs,
-      avgResponseTime: apiMetrics.avgResponseTime,
-      lastJobTime: storeMetrics.lastJobTime || apiMetrics.lastJobTime,
-      successRate: (storeMetrics.totalJobs || apiMetrics.totalJobs) > 0 
-        ? Math.round(((storeMetrics.completedJobs || apiMetrics.completedJobs) / (storeMetrics.totalJobs || apiMetrics.totalJobs)) * 100)
-        : 0
+    uptime: apiMetrics.uptime,
+    totalJobs: storeMetrics.totalJobs || apiMetrics.totalJobs,
+    completedJobs: storeMetrics.completedJobs || apiMetrics.completedJobs,
+    failedJobs: storeMetrics.failedJobs || apiMetrics.failedJobs,
+    avgResponseTime: apiMetrics.avgResponseTime,
+    lastJobTime: storeMetrics.lastJobTime || apiMetrics.lastJobTime,
+    successRate:
+      (storeMetrics.totalJobs || apiMetrics.totalJobs) > 0
+        ? Math.round(
+            ((storeMetrics.completedJobs || apiMetrics.completedJobs) /
+              (storeMetrics.totalJobs || apiMetrics.totalJobs)) *
+              100,
+          )
+        : 0,
   };
 
   // Show loading state during SSR/hydration
@@ -343,8 +344,6 @@ avgResponseTime: 0,
         />
       </section>
 
-
-
       {/* Operations Layout */}
       <main className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-900px)] min-h-[500px]">
         {/* Left Column: Job Queue */}
@@ -356,8 +355,9 @@ avgResponseTime: 0,
             </h2>
             <div className="h-[calc(100%-3rem)] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
               <AnimatePresence>
-                {jobs.filter((j: Job) =>
-                  j.status === "processing" || j.status === "received",
+                {jobs.filter(
+                  (j: Job) =>
+                    j.status === "processing" || j.status === "received",
                 ).length === 0 && (
                   <div className="text-center text-gray-500 py-10 italic">
                     No active operations. Waiting for command...
@@ -365,7 +365,8 @@ avgResponseTime: 0,
                 )}
                 {jobs
                   .filter(
-                    (j: Job) => j.status === "processing" || j.status === "received",
+                    (j: Job) =>
+                      j.status === "processing" || j.status === "received",
                   )
                   .map((job: Job) => (
                     <JobCard
@@ -420,7 +421,7 @@ avgResponseTime: 0,
             className="mt-6 flex-1 overflow-y-auto space-y-1 p-2 custom-scrollbar"
             ref={scrollRef}
           >
-            {logs.map((log: typeof logs[0]) => (
+            {logs.map((log: (typeof logs)[0]) => (
               <motion.div
                 key={log.id}
                 initial={{ opacity: 0, x: -10 }}

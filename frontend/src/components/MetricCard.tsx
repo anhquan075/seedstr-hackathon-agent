@@ -1,5 +1,5 @@
-import { useMetricData, MetricKey } from "../hooks/useMetricData";
 import { Loader } from "lucide-react";
+import { MetricKey, useMetricData } from "../hooks/useMetricData";
 
 interface MetricCardProps {
   label: string;
@@ -18,8 +18,10 @@ export function MetricCard({
   color,
   suppressHydrationWarning,
 }: MetricCardProps) {
-  const { value: liveValue, isLoading } = useMetricData(metricKey || 'totalJobs');
-  
+  const { value: liveValue, isLoading } = useMetricData(
+    metricKey || "totalJobs",
+  );
+
   // Use live data if metricKey is provided, otherwise use static value
   const displayValue = metricKey ? liveValue : staticValue;
   const isMetricLoading = metricKey ? isLoading : false;
