@@ -228,10 +228,13 @@ export class SeedstrPoller {
 
         const validationResult = this.validator.validate(job, this.capabilities);
         this.validator.logValidation(job.id, validationResult);
-
+        
+        // Log rejection reasons at INFO level (not debug) so they're visible in production
         if (!validationResult.eligible) {
+          logger.info(`[SeedstrPoller] Job ${job.id} REJECTED: ${validationResult.reason || 'unknown reason'}`);
           continue;
         }
+
 
         logger.info(
           `[SeedstrPoller] Valid job found: ${job.id} (${job.jobType}, budget: ${
