@@ -99,14 +99,16 @@ program
       pollInterval: options.pollInterval,
     });
     const runner = new AgentRunner({
-      apiKey: seedstrApiKey,
-      seedstrApiKey,
-      openrouterApiKey,
-      models,
-      pusherKey,
-      pusherCluster,
-      pollInterval: parseInt(options.pollInterval, 10),
-    });
+        apiKey: seedstrApiKey,
+        seedstrApiKey,
+        openrouterApiKey,
+        models,
+        pusherKey,
+        pusherCluster,
+        pollInterval: parseInt(options.pollInterval, 10),
+      },
+      database
+    );
     // Event handlers
     runner.on('started', () => {
       logger.info('Agent started successfully');
