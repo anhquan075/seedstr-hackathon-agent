@@ -204,7 +204,9 @@ export class SeedstrPoller {
         return;
       }
 
+      logger.info(`[SeedstrPoller] Starting poll...`);
       const response = await this.apiClient.listJobsV2(50, 0);
+      logger.info(`[SeedstrPoller] Fetched ${response.jobs.length} jobs from Seedstr API`);
       logger.debug(`[SeedstrPoller] Fetched ${response.jobs.length} jobs`);
 
       for (const job of response.jobs) {
@@ -249,7 +251,7 @@ export class SeedstrPoller {
         });
       }
     } catch (error) {
-      logger.error('[SeedstrPoller] Poll failed:', error);
+      logger.error('[SeedstrPoller] Poll error:', error instanceof Error ? error.message : String(error));
     }
   }
 }
