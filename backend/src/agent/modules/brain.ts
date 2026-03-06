@@ -1,6 +1,7 @@
 import type { EventBus } from '../core/event-bus.js';
 import type { AgentConfig, BrainOutput, BuildFile } from '../types.js';
 import { LLMClient } from '../llm-client.js';
+import { logger } from '../logger.js';
 
 export class Brain {
   private llmClient: LLMClient;
@@ -24,7 +25,7 @@ export class Brain {
     const startTime = Date.now();
 
     try {
-      console.log(`[Brain] Starting generation for job ${jobId}...`);
+      logger.info(`[Brain] Starting generation for job ${jobId}...`);
 
       const generation = await this.llmClient.generate({
         messages: [
@@ -46,14 +47,14 @@ export class Brain {
         generationTimeMs,
       };
 
-      console.log(
+      logger.info(
         `[Brain] Generation complete: ${generationTimeMs}ms, ${brainOutput.files.length} files extracted`
       );
-      console.log(`[Brain] Raw LLM response (first 500 chars): ${responseText.substring(0, 500)}...`);
+      logger.info(`[Brain] Raw LLM response (first 500 chars): ${responseText.substring(0, 500)}...`);
 
       return brainOutput;
     } catch (error) {
-      console.error(`[Brain] Generation failed for job ${jobId}:`, error);
+      logger.info(`[Brain] Generation failed for job ${jobId}:`, error);
       throw error;
     }
   }

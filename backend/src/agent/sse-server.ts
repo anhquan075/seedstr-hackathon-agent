@@ -2,6 +2,7 @@ import fs from 'fs';
 import http from 'http';
 import path from 'path';
 import { metricsRegistry } from '../instrumentation/metrics.js';
+import { logger } from './logger.js';
 // SSE event types matching UI's AgentEvent union
 export type SSEEventType =
   | 'agent_started'
@@ -61,7 +62,7 @@ export class SSEServer {
     // Fallback to provided port (default 8080) for local development
     const envPort = process.env.PORT;
     this.port = envPort ? parseInt(envPort, 10) : port;
-    console.log(`[SSE Server] Initializing on port ${this.port}`);
+    logger.info(`[SSE Server] Initializing on port ${this.port}`);
   }
 
   start(): void {
@@ -80,7 +81,7 @@ export class SSEServer {
       }
 
       if (pathname === '/events' && req.method === 'GET') {
-        console.log('[SSE] New connection request received');
+        logger.info('[SSE] New connection request received');
         
         // SSE headers - optimized for Railway edge proxy (based on Nexus-Forge)
         res.writeHead(200, {
@@ -89,28 +90,28 @@ export class SSEServer {
           'Connection': 'keep-alive',
           'X-Accel-Buffering': 'no',
         });
-        console.log('[SSE] Headers written');
+        logger.info('[SSE] Headers written');
 
         // Flush headers immediately
         res.flushHeaders?.();
-        console.log('[SSE] Headers flushed');
+        logger.info('[SSE] Headers flushed');
 
         this.clients.add(res);
-        console.log(`[SSE] Client added. Total: ${this.clients.size}`);
+        logger.info(`[SSE] Client added. Total: ${this.clients.size}`);
 
         const initialMsg = ': connected\n\n';
         res.write(initialMsg);
-        console.log(`[SSE] Initial message written (${initialMsg.length} bytes)`);
+        logger.info(`[SSE] Initial message written (${initialMsg.length} bytes)`);
         
         // Railway edge proxy needs at least some data to start streaming
         // Single comment line is enough to trigger streaming
         res.write(':\n\n');
-        console.log('[SSE] Sent additional keepalive comments');
+        logger.info('[SSE] Sent additional keepalive comments');
         
         // Force flush to prevent Railway buffering
         if (res.socket) {
           res.socket.uncork();
-          console.log('[SSE] Socket uncorked');
+          logger.info('[SSE] Socket uncorked');
         }
 
         // Send initial event
@@ -143,14 +144,14 @@ export class SSEServer {
           } catch {}
           clearInterval(ping);
           this.clients.delete(res);
-          console.log(`[SSE] Client timeout after 90s. Total: ${this.clients.size}`);
+          logger.info(`[SSE] Client timeout after 90s. Total: ${this.clients.size}`);
         }, 90_000);
 
         req.on('close', () => {
           clearInterval(ping);
           clearTimeout(timeout);
           this.clients.delete(res);
-          console.log(`[SSE] Client disconnected. Total: ${this.clients.size}`);
+          logger.info(`[SSE] Client disconnected. Total: ${this.clients.size}`);
         });
       } else if (pathname === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -192,7 +193,7 @@ export class SSEServer {
 
     // Listen on 0.0.0.0 (all interfaces) for Railway compatibility
     this.server.listen(this.port, '0.0.0.0', () => {
-      console.log(`[SSE] Server listening on http://0.0.0.0:${this.port}/events`);
+      logger.info(`[SSE] Server listening on http://0.0.0.0:${this.port}/events`);
     });
   }
 
@@ -202,7 +203,7 @@ export class SSEServer {
       this.clients.clear();
       this.server.close();
       this.server = null;
-      console.log('[SSE] Server stopped');
+      logger.info('[SSE] Server stopped');
     }
   }
 
@@ -227,7 +228,7 @@ export class SSEServer {
     }
     
     // Also log to server console
-    console.log(`[SSE Log] ${level.toUpperCase()}: ${message}`);
+    logger.info(`[SSE Log] ${level.toUpperCase()}: ${message}`);
   }
 
   /** Broadcast an event to all connected clients */
@@ -506,9 +507,9 @@ export class SSEServer {
             `isLocal: true`,
           ].join('\n');
           fs.writeFileSync(promptFile, fileContent);
-          console.log(`[SSE] Created .agent-prompt for job ${jobId}`);
+          logger.info(`[SSE] Created .agent-prompt for job ${jobId}`);
         } catch (err) {
-          console.error('[SSE] Failed to create .agent-prompt:', err);
+          logger.info('[SSE] Failed to create .agent-prompt:', err);
         }
 
         this.respondJson(res, 201, {

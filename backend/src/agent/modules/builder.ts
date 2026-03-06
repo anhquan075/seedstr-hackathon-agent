@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { EventBus } from '../core/event-bus.js';
 import type { AgentConfig, BuildFile, BrainOutput } from '../types.js';
+import { logger } from '../logger.js';
 
 /**
  * Builder Module
@@ -27,7 +28,7 @@ export class Builder {
     const buildDir = path.join(process.cwd(), '.build', jobId);
 
     try {
-      console.log(`[Builder] Starting build for job ${jobId}...`);
+      logger.info(`[Builder] Starting build for job ${jobId}...`);
 
       // Create build directory
       fs.mkdirSync(buildDir, { recursive: true });
@@ -42,7 +43,7 @@ export class Builder {
 
         // Write file
         fs.writeFileSync(filePath, file.content, 'utf-8');
-        console.log(`[Builder] Written: ${file.path}`);
+        logger.info(`[Builder] Written: ${file.path}`);
       }
 
       // Verify files were created
@@ -53,7 +54,7 @@ export class Builder {
         );
       }
 
-      console.log(`[Builder] Build complete: ${brainOutput.files.length} files written to ${buildDir}`);
+      logger.info(`[Builder] Build complete: ${brainOutput.files.length} files written to ${buildDir}`);
 
       // Emit completion
       this.bus.emit('job_processing', {
@@ -63,7 +64,7 @@ export class Builder {
       });
 
     } catch (error) {
-      console.error(`[Builder] Build failed for job ${jobId}:`, error);
+      logger.info(`[Builder] Build failed for job ${jobId}:`, error);
 
       // Cleanup on failure
       try {

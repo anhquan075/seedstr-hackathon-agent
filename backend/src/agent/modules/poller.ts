@@ -136,7 +136,7 @@ export class SeedstrPoller {
       const oldestId = Array.from(this.processedJobIds)[0];
       this.processedJobIds.delete(oldestId);
     }
-    logger.debug(`[SeedstrPoller] Marked job ${jobId} as processed`);
+    logger.info(`[SeedstrPoller] Marked job ${jobId} as processed`);
   }
 
   /**
@@ -148,7 +148,7 @@ export class SeedstrPoller {
       const claimed = await database.claimJob(jobId);
       if (claimed) {
         this.processedJobIds.add(jobId);
-        logger.debug(`[SeedstrPoller] Claimed job ${jobId} via database`);
+        logger.info(`[SeedstrPoller] Claimed job ${jobId} via database`);
         return true;
       }
       return false;
@@ -184,11 +184,10 @@ export class SeedstrPoller {
       }
     }, Math.round(interval));
 
-    logger.debug(
+    logger.info(
       `[SeedstrPoller] Next poll scheduled in ${Math.round(interval)}ms`
     );
   }
-
   private async poll(): Promise<void> {
     try {
       const now = Date.now();
@@ -198,7 +197,7 @@ export class SeedstrPoller {
       const rateLimitReset = this.apiClient.getRateLimitReset();
       if (rateLimitReset > now) {
         const waitSeconds = Math.ceil((rateLimitReset - now) / 1000);
-        logger.warn(
+        logger.info(
           `[SeedstrPoller] Rate limited. Waiting ${waitSeconds}s before retry`
         );
         return;
@@ -207,20 +206,19 @@ export class SeedstrPoller {
       logger.info(`[SeedstrPoller] Starting poll...`);
       const response = await this.apiClient.listJobsV2(50, 0);
       logger.info(`[SeedstrPoller] Fetched ${response.jobs.length} jobs from Seedstr API`);
-      logger.debug(`[SeedstrPoller] Fetched ${response.jobs.length} jobs`);
 
       for (const job of response.jobs) {
         // Use atomic database claim to prevent race conditions across instances
         if (this.dbAvailable) {
           const claimed = await this.tryClaimJob(job.id);
           if (!claimed) {
-            logger.debug(`[SeedstrPoller] Job ${job.id} already claimed by another instance, skipping`);
+            logger.info(`[SeedstrPoller] Job ${job.id} already claimed by another instance, skipping`);
             continue;
           }
         } else {
           // Fallback to in-memory check
           if (this.processedJobIds.has(job.id)) {
-            logger.debug(`[SeedstrPoller] Skipping already-processed job ${job.id}`);
+            logger.info(`[SeedstrPoller] Skipping already-processed job ${job.id}`);
             continue;
           }
           this.processedJobIds.add(job.id);

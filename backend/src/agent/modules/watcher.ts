@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { EventBus } from '../core/event-bus.js';
 import type { AgentConfig } from '../types.js';
+import { logger } from '../logger.js';
 
 /**
  * Watcher Module
@@ -26,12 +27,12 @@ export class Watcher {
    */
   start(): void {
     if (this.isRunning) {
-      console.warn('[Watcher] Already running');
+      logger.info('[Watcher] Already running');
       return;
     }
 
     this.isRunning = true;
-    console.log('[Watcher] Started');
+    logger.info('[Watcher] Started');
 
     // Poll every 2 seconds for prompts
     this.pollInterval = setInterval(() => this.poll(), 2000);
@@ -45,7 +46,7 @@ export class Watcher {
 
     this.isRunning = false;
     if (this.pollInterval) clearInterval(this.pollInterval);
-    console.log('[Watcher] Stopped');
+    logger.info('[Watcher] Stopped');
   }
 
   /**
@@ -54,14 +55,14 @@ export class Watcher {
    */
   pause(): void {
     if (!this.isRunning) {
-      console.warn('[Watcher] Not running, cannot pause');
+      logger.info('[Watcher] Not running, cannot pause');
       return;
     }
 
     if (this.pollInterval) {
       clearInterval(this.pollInterval);
       this.pollInterval = null;
-      console.log('[Watcher] Polling paused');
+      logger.info('[Watcher] Polling paused');
     }
   }
 
@@ -70,18 +71,18 @@ export class Watcher {
    */
   resume(): void {
     if (!this.isRunning) {
-      console.warn('[Watcher] Not running, cannot resume');
+      logger.info('[Watcher] Not running, cannot resume');
       return;
     }
 
     if (this.pollInterval) {
-      console.warn('[Watcher] Already polling');
+      logger.info('[Watcher] Already polling');
       return;
     }
 
     // Resume polling every 2 seconds
     this.pollInterval = setInterval(() => this.poll(), 2000);
-    console.log('[Watcher] Polling resumed');
+    logger.info('[Watcher] Polling resumed');
   }
 
   /**
@@ -118,7 +119,7 @@ export class Watcher {
       const responseType = this.parseResponseType(lines);
       const jobId = this.parseField(lines, 'jobId') || `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-      console.log(`[Watcher] New prompt detected: "${prompt.slice(0, 50)}..."`);
+      logger.info(`[Watcher] New prompt detected: "${prompt.slice(0, 50)}..."`);
 
       // Emit job_received event
       this.bus.emit('job_received', {
@@ -136,7 +137,7 @@ export class Watcher {
       // Clean up the prompt file
       fs.unlinkSync(promptFile);
     } catch (error) {
-      console.error('[Watcher] Poll error:', error);
+      logger.info('[Watcher] Poll error:', error);
     }
   }
 

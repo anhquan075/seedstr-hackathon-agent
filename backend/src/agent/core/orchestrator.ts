@@ -1,6 +1,7 @@
 import type { EventBus } from './event-bus.js';
 import type { AgentConfig, EngineStage } from '../types.js';
 import type { Database } from '../db.js';
+import { logger } from '../logger.js';
 
 /**
  * State Machine Orchestrator
@@ -51,9 +52,9 @@ export class Orchestrator {
       processingJobs.forEach((job) => {
         this.processedJobsCache.add(job.job_id);
       });
-      console.log(`[Orchestrator] Loaded ${processingJobs.length} processing jobs from database (skipped ${recentJobs.length - processingJobs.length} completed/failed jobs)`);
+      logger.info(`[Orchestrator] Loaded ${processingJobs.length} processing jobs from database (skipped ${recentJobs.length - processingJobs.length} completed/failed jobs)`);
     } catch (error) {
-      console.error('[Orchestrator] Failed to load processed jobs from database:', error);
+      logger.info('[Orchestrator] Failed to load processed jobs from database:', error);
       // Continue gracefully without DB state
     }
   }
@@ -71,17 +72,17 @@ export class Orchestrator {
     this.bus.on('job_received', (data) => {
       // Guard 1: check if job was already processed (in memory or database)
       if (this.inFlightJobs.has(data.id)) {
-        console.warn(`[Orchestrator] Duplicate job ignored (in-flight): ${data.id}`);
+        logger.info(`[Orchestrator] Duplicate job ignored (in-flight): ${data.id}`);
         return;
       }
       if (this.processedJobsCache.has(data.id)) {
-        console.warn(`[Orchestrator] Duplicate job ignored (already processed): ${data.id}`);
+        logger.info(`[Orchestrator] Duplicate job ignored (already processed): ${data.id}`);
         return;
       }
 
       // Guard 2: rate limiting
       if (this.inFlightJobs.size >= this.maxConcurrentJobs) {
-        console.warn(`[Orchestrator] Job queued (at capacity ${this.maxConcurrentJobs}): ${data.id}`);
+        logger.info(`[Orchestrator] Job queued (at capacity ${this.maxConcurrentJobs}): ${data.id}`);
         return;
       }
 
@@ -113,7 +114,7 @@ export class Orchestrator {
   private transitionTo(newStage: EngineStage): void {
     const oldStage = this.stage;
     this.stage = newStage;
-    console.log(`[Orchestrator] ${oldStage} → ${newStage}`);
+    logger.info(`[Orchestrator] ${oldStage} → ${newStage}`);
   }
 
   /**
@@ -138,7 +139,7 @@ export class Orchestrator {
    * Graceful shutdown: wait for in-flight jobs to complete
    */
   async shutdown(timeoutMs: number = 30000): Promise<void> {
-    console.log('[Orchestrator] Shutting down...');
+    logger.info('[Orchestrator] Shutting down...');
     this.transitionTo('idle');
 
     const startTime = Date.now();
@@ -147,9 +148,9 @@ export class Orchestrator {
     }
 
     if (this.inFlightJobs.size > 0) {
-      console.warn(`[Orchestrator] Forced shutdown with ${this.inFlightJobs.size} in-flight jobs`);
+      logger.info(`[Orchestrator] Forced shutdown with ${this.inFlightJobs.size} in-flight jobs`);
     } else {
-      console.log('[Orchestrator] Graceful shutdown complete');
+      logger.info('[Orchestrator] Graceful shutdown complete');
     }
   }
 }

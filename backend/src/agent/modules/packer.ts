@@ -4,6 +4,7 @@ import * as path from 'path';
 import { SeedstrAPIClient } from '../api-client.js';
 import type { EventBus } from '../core/event-bus.js';
 import type { AgentConfig, ApprovalEventData, BrainOutput } from '../types.js';
+import { logger } from '../logger.js';
 
 import archiver from 'archiver';
 type AutonomyMode = 'manual' | 'supervised' | 'autonomous';
@@ -37,7 +38,7 @@ export class Packer {
     if (jobType === 'SWARM') {
       const deadline = Date.now() + Packer.SWARM_DEADLINE_MS;
       this.swarmDeadlines.set(jobId, deadline);
-      console.log(`[Packer] SWARM deadline registered for ${jobId}: ${new Date(deadline).toISOString()}`);
+      logger.info(`[Packer] SWARM deadline registered for ${jobId}: ${new Date(deadline).toISOString()}`);
     }
   }
 
@@ -60,7 +61,7 @@ async acceptJob(job: JobMetadata): Promise<void> {
   this.broadcastSwarmAcceptance(job);
 
   try {
-    console.log(`[Packer] Attempting to accept SWARM job ${job.id}...`);
+    logger.info(`[Packer] Attempting to accept SWARM job ${job.id}...`);
     await this.apiClient.acceptJob(job.id);
     this.bus.emit('job_accepted', {
       id: job.id,
@@ -72,11 +73,11 @@ async acceptJob(job: JobMetadata): Promise<void> {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes('409')) {
-      console.warn(`[Packer] SWARM job ${job.id} already accepted or full (409 Conflict)`);
+      logger.info(`[Packer] SWARM job ${job.id} already accepted or full (409 Conflict)`);
       throw new Error(`SWARM job ${job.id} already accepted or full`);
     }
     if (message.includes('403')) {
-      console.error(`[Packer] SWARM job ${job.id} acceptance forbidden (403). Agent may not be verified or meet reputation requirements.`);
+      logger.info(`[Packer] SWARM job ${job.id} acceptance forbidden (403). Agent may not be verified or meet reputation requirements.`);
       throw new Error(`Forbidden: Agent not verified or does not meet requirements for SWARM job ${job.id}`);
     }
     throw error instanceof Error ? error : new Error(message);
@@ -93,11 +94,11 @@ async acceptJob(job: JobMetadata): Promise<void> {
     const startTime = Date.now();
 
     try {
-      console.log(`[Packer] Starting pack & submit for job ${jobId} (type: ${responseType})...`);
+      logger.info(`[Packer] Starting pack & submit for job ${jobId} (type: ${responseType})...`);
 
       if (this.isDeadlineExceeded(jobId)) {
         const error = `SWARM deadline exceeded for job ${jobId}. Cannot submit after 2-hour window.`;
-        console.error(`[Packer] ${error}`);
+        logger.info(`[Packer] ${error}`);
         throw new Error(error);
       }
 
@@ -117,7 +118,7 @@ async acceptJob(job: JobMetadata): Promise<void> {
       });
 
       if (jobMetadata?.isLocal) {
-        console.log(`[Packer] SKIPPING real submission for LOCAL job ${jobId}`);
+        logger.info(`[Packer] SKIPPING real submission for LOCAL job ${jobId}`);
         // Simulate completion for local jobs so they show up in UI terminal as finished
         this.bus.emit('job_completed', {
           id: jobId,
@@ -136,9 +137,9 @@ async acceptJob(job: JobMetadata): Promise<void> {
       }
 
       this.swarmDeadlines.delete(jobId);
-      console.log(`[Packer] Job ${jobId} submission completed in ${Date.now() - startTime}ms`);
+      logger.info(`[Packer] Job ${jobId} submission completed in ${Date.now() - startTime}ms`);
     } catch (error) {
-      console.error(`[Packer] Pack & submit failed for job ${jobId}:`, error);
+      logger.info(`[Packer] Pack & submit failed for job ${jobId}:`, error);
 
       this.bus.emit('job_failed', {
         id: jobId,
@@ -166,12 +167,12 @@ async acceptJob(job: JobMetadata): Promise<void> {
 
   private async submitFileResponse(jobId: string, buildDir: string, brainOutput: BrainOutput): Promise<void> {
     const files = this.collectFilesFromDir(buildDir);
-    console.log(`[Packer] Collected ${files.length} files for upload`);
+    logger.info(`[Packer] Collected ${files.length} files for upload`);
 
     // Create ZIP file from build directory
-    console.log(`[Packer] Creating ZIP archive...`);
+    logger.info(`[Packer] Creating ZIP archive...`);
     const zipBuffer = await this.createZipFile(buildDir);
-    console.log(`[Packer] ZIP created: ${zipBuffer.length} bytes`);
+    logger.info(`[Packer] ZIP created: ${zipBuffer.length} bytes`);
 
     // Upload ZIP file
     const zipFileName = `build-${jobId}.zip`;
@@ -267,7 +268,7 @@ async acceptJob(job: JobMetadata): Promise<void> {
         fs.rmSync(buildDir, { recursive: true, force: true });
       }
     } catch (error) {
-      console.warn(`[Packer] Cleanup warning: ${error}`);
+      logger.info(`[Packer] Cleanup warning: ${error}`);
     }
   }
 

@@ -1,5 +1,6 @@
 import type { EventBus } from '../core/event-bus.js';
 import type { SSEServer } from '../sse-server.js';
+import { logger } from '../logger.js';
 
 /**
  * Bridge Module: Connects backend events to frontend via SSE
@@ -17,12 +18,12 @@ export class Bridge {
    * Start listening to job_completed events and broadcast to SSE clients
    */
   start(): void {
-    console.log('[Bridge] Starting...');
+    logger.info('[Bridge] Starting...');
 
     // Listen to job_completed events from Packer module
     // These events include output + outputTruncated
     this.eventBus.on('job_completed', (data) => {
-      console.log('[Bridge] Received job_completed event', {
+      logger.info('[Bridge] Received job_completed event', {
         id: data.id,
         outputLength: (data.output as string)?.length ?? 0,
         truncatedLength: (data.outputTruncated as string)?.length ?? 0,
@@ -44,12 +45,12 @@ export class Bridge {
         },
       });
 
-      console.log('[Bridge] Broadcasted to SSE clients');
+      logger.info('[Bridge] Broadcasted to SSE clients');
     });
 
     // Listen to other job events for pipeline tracking
     this.eventBus.on('job_received', (data) => {
-      console.log('[Bridge] Received job_received event', { id: data.id });
+      logger.info('[Bridge] Received job_received event', { id: data.id });
       this.sseServer.broadcast({
         type: 'job_received',
         timestamp: Date.now(),
@@ -63,7 +64,7 @@ export class Bridge {
     });
 
     this.eventBus.on('job_processing', (data) => {
-      console.log('[Bridge] Received job_processing event', { id: data.id, stage: data.stage });
+      logger.info('[Bridge] Received job_processing event', { id: data.id, stage: data.stage });
       this.sseServer.broadcast({
         type: 'job_processing',
         timestamp: Date.now(),
@@ -76,7 +77,7 @@ export class Bridge {
     });
 
     this.eventBus.on('job_failed', (data) => {
-      console.log('[Bridge] Received job_failed event', { id: data.id, error: data.error });
+      logger.info('[Bridge] Received job_failed event', { id: data.id, error: data.error });
       this.sseServer.broadcast({
         type: 'job_failed',
         timestamp: Date.now(),
@@ -89,7 +90,7 @@ export class Bridge {
     });
 
     this.eventBus.on('job_approval_request', (data) => {
-      console.log('[Bridge] Received job_approval_request event', {
+      logger.info('[Bridge] Received job_approval_request event', {
         id: data.id,
         action: data.action,
         autoApproved: data.autoApproved,
@@ -128,17 +129,17 @@ export class Bridge {
     });
 
 
-    console.log('[Bridge] Started. Listening to event bus...');
+    logger.info('[Bridge] Started. Listening to event bus...');
   }
 
   stop(): void {
-    console.log('[Bridge] Stopping...');
+    logger.info('[Bridge] Stopping...');
     // Remove listeners for bridge events
     this.eventBus.removeAllListeners('job_completed');
     this.eventBus.removeAllListeners('job_received');
     this.eventBus.removeAllListeners('job_processing');
     this.eventBus.removeAllListeners('job_failed');
     this.eventBus.removeAllListeners('job_approval_request');
-    console.log('[Bridge] Stopped.');
+    logger.info('[Bridge] Stopped.');
   }
 }
