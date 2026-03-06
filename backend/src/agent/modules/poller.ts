@@ -5,6 +5,7 @@ import { database } from '../db.js';
 import { JobEligibilityValidator, type AgentCapabilities } from '../job-eligibility-validator.js';
 import { logger } from '../logger.js';
 import type { AgentConfig } from '../types.js';
+import { hostname } from 'os';
 
 export class SeedstrPoller {
   private isRunning = false;
@@ -13,7 +14,7 @@ export class SeedstrPoller {
   private apiClient: SeedstrAPIClient;
   private validator: JobEligibilityValidator;
   private dbAvailable = false;
-
+  private instanceId: string;
   constructor(
     private bus: EventBus,
     private config: AgentConfig,
@@ -21,6 +22,8 @@ export class SeedstrPoller {
   ) {
     this.apiClient = new SeedstrAPIClient(config.seedstrApiKey || config.apiKey);
     this.validator = new JobEligibilityValidator();
+    this.instanceId = this.generateInstanceId();
+    logger.info(`[SeedstrPoller] Initialized with instance ID: ${this.instanceId}`);
     
     // Check if database is available
     this.dbAvailable = database.isAvailable();
@@ -31,6 +34,15 @@ export class SeedstrPoller {
       logger.info('[SeedstrPoller] Database not available, using in-memory + config');
       this.loadPersistentJobs();
     }
+  }
+
+  /**
+   * Generate a unique instance ID based on hostname and process ID
+   */
+  private generateInstanceId(): string {
+    const host = hostname();
+    const pid = process.pid;
+    return `${host}-${pid}`;
   }
 
   private async loadJobsFromDatabase(): Promise<void> {
@@ -142,15 +154,15 @@ export class SeedstrPoller {
   }
 
   /**
-   * Atomically claim a job in the database to prevent race conditions
+   * Atomically claim a job in the database with lease-based expiration
    * Returns true if successfully claimed, false if already being processed
    */
   async tryClaimJob(jobId: string): Promise<boolean> {
     if (this.dbAvailable) {
-      const claimed = await database.claimJob(jobId);
+      const claimed = await database.claimJob(jobId, this.instanceId, 30000);
       if (claimed) {
         this.processedJobIds.add(jobId);
-        logger.info(`[SeedstrPoller] Claimed job ${jobId} via database`);
+        logger.info(`[SeedstrPoller] Claimed job ${jobId} via database (instance: ${this.instanceId})`);
         return true;
       }
       return false;

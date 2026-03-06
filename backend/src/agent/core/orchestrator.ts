@@ -35,7 +35,63 @@ export class Orchestrator {
     this.setupEventListeners();
     if (this.db) {
       this.loadProcessedJobsFromDatabase();
+      this.startHeartbeatLoop();
+      this.startLeaseCleanupLoop();
     }
+  }
+
+  /**
+   * Start background heartbeat loop to maintain lease for in-flight jobs
+   * Sends periodic heartbeats every 10 seconds
+   */
+  private startHeartbeatLoop(): void {
+    const heartbeatInterval = setInterval(async () => {
+      if (this.inFlightJobs.size === 0) return;
+
+      for (const jobId of this.inFlightJobs) {
+        if (!this.db) break;
+        const success = await this.db.heartbeat(jobId);
+        if (!success) {
+          logger.warn(`[Orchestrator] Failed to send heartbeat for job ${jobId}`);
+          // Job might have been removed from DB or processing status cleared
+          this.inFlightJobs.delete(jobId);
+        }
+      }
+
+      if (this.inFlightJobs.size > 0) {
+        logger.debug(
+          `[Orchestrator] Heartbeat sent for ${this.inFlightJobs.size} in-flight jobs`
+        );
+      }
+    }, 10000); // Every 10 seconds
+
+    // Allow process to exit even if interval is running
+    heartbeatInterval.unref();
+  }
+
+  /**
+   * Start background task to release expired leases
+   * Detects crashed workers and marks their jobs as failed for retry
+   * Runs every 60 seconds
+   */
+  private startLeaseCleanupLoop(): void {
+    const cleanupInterval = setInterval(async () => {
+      if (!this.db) return;
+
+      try {
+        const releasedCount = await this.db.releaseExpiredLeases();
+        if (releasedCount > 0) {
+          logger.info(
+            `[Orchestrator] Released ${releasedCount} expired job leases (detected crashes)`
+          );
+        }
+      } catch (error) {
+        logger.error('[Orchestrator] Failed to release expired leases:', error);
+      }
+    }, 60000); // Every 60 seconds
+
+    // Allow process to exit even if interval is running
+    cleanupInterval.unref();
   }
 
   /**

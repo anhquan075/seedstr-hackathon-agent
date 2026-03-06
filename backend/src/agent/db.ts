@@ -81,8 +81,32 @@ export class Database {
         ALTER TABLE processed_jobs
         ADD COLUMN IF NOT EXISTS finished_at TIMESTAMP DEFAULT NOW()
       `);
+      
+      // Add lease tracking columns (migration for distributed job claiming)
       await this.pool.query(`
-        CREATE INDEX IF NOT EXISTS idx_processed_jobs_job_id ON processed_jobs(job_id)
+        ALTER TABLE processed_jobs
+        ADD COLUMN IF NOT EXISTS claimed_by VARCHAR(255)
+      `);
+      
+      await this.pool.query(`
+        ALTER TABLE processed_jobs
+        ADD COLUMN IF NOT EXISTS claimed_at BIGINT
+      `);
+      
+      await this.pool.query(`
+        ALTER TABLE processed_jobs
+        ADD COLUMN IF NOT EXISTS lease_expires_at BIGINT
+      `);
+      
+      await this.pool.query(`
+        ALTER TABLE processed_jobs
+        ADD COLUMN IF NOT EXISTS last_heartbeat BIGINT
+      `);
+      
+      // Create index for lease expiration queries
+      await this.pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_lease_expiration ON processed_jobs(lease_expires_at)
+        WHERE status = 'processing'
       `);
       
       logger.info('[Database] Migrations completed');
@@ -96,24 +120,43 @@ export class Database {
   }
 
   /**
-   * Atomically claim a job to prevent race conditions
+   * Atomically claim a job with lease-based expiration for distributed safety
    * Returns true if successfully claimed, false if already being processed
+   * Allows reclaim if lease has expired
    */
-  async claimJob(jobId: string): Promise<boolean> {
+  async claimJob(jobId: string, instanceId: string, leaseTTL: number = 30000): Promise<boolean> {
     if (!this.db || !this.pool) return false;
 
     try {
+      const now = Date.now();
+      const expiresAt = now + leaseTTL;
+
       const result = await this.pool.query(
-        `INSERT INTO processed_jobs (job_id, status, processed_at)
-         VALUES ($1, 'processing', $2)
-         ON CONFLICT (job_id) DO 
-         UPDATE SET status = 'processing', processed_at = $2
-         WHERE processed_jobs.status = 'completed'
+        `INSERT INTO processed_jobs (
+           job_id, status, claimed_by, claimed_at, lease_expires_at, last_heartbeat, processed_at
+         )
+         VALUES ($1, 'processing', $2, $3, $4, $5, $6)
+         ON CONFLICT (job_id) DO UPDATE SET
+           claimed_by = $2,
+           claimed_at = $3,
+           lease_expires_at = $4,
+           last_heartbeat = $5,
+           processed_at = $6
+         WHERE (
+           status = 'failed'
+           OR (status = 'processing' AND lease_expires_at < $3)
+         )
          RETURNING job_id`,
-        [jobId, Date.now()]
+        [jobId, instanceId, now, expiresAt, now, now]
       );
-      
-      return (result.rowCount ?? 0) > 0;
+
+      const claimed = (result.rowCount ?? 0) > 0;
+      if (claimed) {
+        logger.info(
+          `[Database] Claimed job ${jobId} by ${instanceId} (lease expires at ${new Date(expiresAt).toISOString()})`
+        );
+      }
+      return claimed;
     } catch (error) {
       logger.error('[Database] claimJob failed:', error);
       return false;
@@ -220,6 +263,63 @@ export class Database {
       return Number(result.rows[0]?.count || 0);
     } catch (error) {
       logger.error('[Database] getJobCount failed:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Update heartbeat for an in-flight job to extend its lease
+   */
+  async heartbeat(jobId: string): Promise<boolean> {
+    if (!this.db || !this.pool) return false;
+
+    try {
+      const now = Date.now();
+
+      const result = await this.pool.query(
+        `UPDATE processed_jobs
+         SET last_heartbeat = $1
+         WHERE job_id = $2 AND status = 'processing'
+         RETURNING job_id`,
+        [now, jobId]
+      );
+
+      return (result.rowCount ?? 0) > 0;
+    } catch (error) {
+      logger.error(`[Database] Failed to update heartbeat for ${jobId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Release expired leases by marking jobs as 'failed' for retry
+   * This is called periodically to recover from worker crashes
+   */
+  async releaseExpiredLeases(): Promise<number> {
+    if (!this.db || !this.pool) return 0;
+
+    try {
+      const now = Date.now();
+
+      const result = await this.pool.query(
+        `UPDATE processed_jobs
+         SET status = 'failed'
+         WHERE status = 'processing'
+           AND lease_expires_at < $1
+         RETURNING job_id`,
+        [now]
+      );
+
+      const count = result.rowCount ?? 0;
+      if (count > 0) {
+        const jobIds = result.rows.map((row: any) => row.job_id);
+        logger.warn(
+          `[Database] Released ${count} expired job leases: ${jobIds.join(', ')}`
+        );
+      }
+      return count;
+    } catch (error) {
+      logger.error('[Database] Failed to release expired leases:', error);
       return 0;
     }
   }
