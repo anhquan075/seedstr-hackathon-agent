@@ -31,12 +31,27 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
       
+      - name: Verify Railway Token
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "❌ RAILWAY_TOKEN is not set in GitHub Secrets"
+            exit 1
+          fi
+          echo "✅ RAILWAY_TOKEN is set (length: ${#RAILWAY_TOKEN})"
+          echo "Testing Railway authentication..."
+          railway whoami || echo "⚠️ Railway authentication test failed"
+      
       - name: Deploy to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          railway link --project 845bbcc7-aee6-43b5-a379-964641f0483d --environment production
-          railway deploy --service seedstr-hackathon-agent --detach
+          echo "Linking to Railway project..."
+          railway link 845bbcc7-aee6-43b5-a379-964641f0483d
+          
+          echo "Deploying service..."
+          railway up --service seedstr-hackathon-agent --detach
       
       - name: Wait for deployment
         run: sleep 30
@@ -46,7 +61,7 @@ jobs:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
           # Check service logs for successful startup
-          railway logs --service seedstr-hackathon-agent --limit 20 || echo "Could not fetch logs yet"
+          railway logs --limit 20 || echo "Could not fetch logs yet"
       
       - name: Deployment status
         run: |
