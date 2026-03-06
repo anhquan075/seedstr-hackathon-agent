@@ -1,0 +1,56 @@
+name: Railway Auto-Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'Dockerfile'
+      - 'railway.toml'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/railway-deploy.yml'
+
+jobs:
+  deploy:
+    name: Deploy to Railway
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Get commit info
+        id: commit
+        run: |
+          echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "message=$(git log -1 --pretty=%B)" >> $GITHUB_OUTPUT
+      
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway link --project 845bbcc7-aee6-43b5-a379-964641f0483d --environment production
+          railway deploy --service seedstr-hackathon-agent --detach
+      
+      - name: Wait for deployment
+        run: sleep 30
+      
+      - name: Verify deployment
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          # Check service logs for successful startup
+          railway logs --service seedstr-hackathon-agent --limit 20 || echo "Could not fetch logs yet"
+      
+      - name: Deployment status
+        run: |
+          echo "✅ Deployment triggered successfully"
+          echo "Commit: ${{ steps.commit.outputs.short_sha }}"
+          echo "Message: ${{ steps.commit.outputs.message }}"
+          echo "View deployment: https://railway.app/project/845bbcc7-aee6-43b5-a379-964641f0483d"
