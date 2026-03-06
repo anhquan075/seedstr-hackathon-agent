@@ -189,6 +189,8 @@ apiClient.getMeV2()
       });
 
       logger.info(`[CompositionRoot] Job ${data.id} completed`);
+      // Mark as completed in database to prevent re-processing
+      await database?.markJobProcessed(data.id, 'completed');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error(`[CompositionRoot] Processing failed for job ${data.id}:`, error);
@@ -208,6 +210,10 @@ apiClient.getMeV2()
         });
         return;
       }
+      
+      // Mark job as failed for retry on next poll
+      logger.info(`[CompositionRoot] Marking job ${data.id} as failed for potential retry`);
+      await database?.markJobProcessed(data.id, 'failed');
       
       eventBus.emit('job_failed', {
         id: data.id,

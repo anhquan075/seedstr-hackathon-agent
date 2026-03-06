@@ -37,11 +37,13 @@ export class SeedstrPoller {
     try {
       const jobs = await database.getRecentJobs(1000);
       jobs.forEach(job => {
-        if (job.status !== 'processing') {
+        // Only skip jobs that are currently processing or already completed
+        // Failed jobs are eligible for retry
+        if (job.status === 'processing' || job.status === 'completed') {
           this.processedJobIds.add(job.job_id);
         }
       });
-      logger.info(`[SeedstrPoller] Loaded ${this.processedJobIds.size} jobs from database`);
+      logger.info(`[SeedstrPoller] Loaded ${this.processedJobIds.size} processing/completed jobs from database (will skip). Failed jobs will be retried.`);
       
       // Prune old jobs to keep only last 1000
       await database.pruneOldJobs(1000);
@@ -208,6 +210,12 @@ export class SeedstrPoller {
       logger.info(`[SeedstrPoller] Fetched ${response.jobs.length} jobs from Seedstr API`);
 
       for (const job of response.jobs) {
+        // Skip jobs that have already been completed to prevent re-execution
+        if (this.processedJobIds.has(job.id)) {
+          logger.info(`[SeedstrPoller] Job ${job.id} already completed, skipping re-execution`);
+          continue;
+        }
+        
         // Use atomic database claim to prevent race conditions across instances
         if (this.dbAvailable) {
           const claimed = await this.tryClaimJob(job.id);
