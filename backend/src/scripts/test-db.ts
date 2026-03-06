@@ -17,10 +17,10 @@ if (!DATABASE_URL) {
 
 async function main() {
   console.log('Testing PostgreSQL connection...\n');
-  console.log('Connection URL:', DATABASE_URL.replace(/:[^:@]+@/, ':***@'));
+  console.log('Connection URL:', DATABASE_URL!.replace(/:[^:@]+@/, ':***@'));
   
   const pool = new Pool({
-    connectionString: DATABASE_URL,
+    connectionString: DATABASE_URL!,
     ssl: {
       rejectUnauthorized: false,
     },
@@ -50,7 +50,7 @@ async function main() {
     if (tables.rows.length === 0) {
       console.log('  (none)');
     } else {
-      tables.rows.forEach(row => {
+      tables.rows.forEach((row: any) => {
         console.log('  -', row.table_name);
       });
     }
