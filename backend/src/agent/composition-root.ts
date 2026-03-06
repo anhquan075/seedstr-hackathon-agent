@@ -18,6 +18,7 @@
 import { SeedstrAPIClient } from './api-client.js';
 import { EventBus } from './core/event-bus.js';
 import { Orchestrator } from './core/orchestrator.js';
+import { Database } from './db.js';
 import { logger } from './logger.js';
 import { Brain } from './modules/brain.js';
 import { Bridge } from './modules/bridge.js';
@@ -48,8 +49,10 @@ export interface ComposedAgentPipeline {
  */
 export function createAgentPipeline(
   config: AgentConfig,
-  sseServer: SSEServer
+  sseServer: SSEServer,
+  database?: Database // Optional: database for persistent duplicate prevention
 ): ComposedAgentPipeline {
+
   logger.info('[CompositionRoot] Wiring agent pipeline...');
 
   // 1. Create central EventBus - all modules communicate via this
@@ -57,7 +60,7 @@ export function createAgentPipeline(
   logger.debug('[CompositionRoot] EventBus created');
 
   // 2. Create Orchestrator - manages overall agent lifecycle and state
-  const orchestrator = new Orchestrator(eventBus, config);
+  const orchestrator = new Orchestrator(eventBus, config, database);
   logger.debug('[CompositionRoot] Orchestrator created');
 
   // 3. Create worker modules in order of execution flow:

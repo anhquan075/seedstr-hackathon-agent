@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import 'dotenv/config';
 import { PreflightChecker } from './preflight-check.js';
+import { database } from './db.js';
 import type { SeedstrJob } from './types.js';
 
 import { Command } from 'commander';
@@ -76,6 +77,17 @@ program
     }
 
     logger.info('\n=== Starting Agent Runner ===\n');
+    
+    // Initialize database connection
+    logger.info('Connecting to database...');
+    await database.connect();
+    if (database.isAvailable()) {
+      logger.info('✓ Database connected successfully');
+    } else {
+      logger.warn('⚠ Database not available, using in-memory fallback');
+    }
+    
+    logger.info('Starting Seedstr Agent');
 
 
     logger.info('Starting Seedstr Agent');

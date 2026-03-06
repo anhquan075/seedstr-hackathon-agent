@@ -1,5 +1,6 @@
 import type { EventBus } from './event-bus.js';
 import type { AgentConfig, EngineStage } from '../types.js';
+import type { Database } from '../db.js';
 
 /**
  * State Machine Orchestrator
@@ -9,12 +10,14 @@ import type { AgentConfig, EngineStage } from '../types.js';
  * - Single responsibility: only orchestrate, don't implement business logic
  * - Stages are guarded: transitions only happen in valid sequences
  * - Metrics and logging at every stage transition
- * - Duplicate job prevention via in-flight tracking
+ * - Duplicate job prevention via in-flight tracking + database persistence
  * - Rate limiting (max concurrent jobs)
+ * - Prevents race conditions via atomic database checks
  */
 export class Orchestrator {
   private stage: EngineStage = 'idle';
   private inFlightJobs = new Set<string>();
+  private processedJobsCache = new Set<string>(); // Cache of recently processed jobs from DB
   private maxConcurrentJobs: number;
   private metrics = {
     jobsReceived: 0,
@@ -24,11 +27,34 @@ export class Orchestrator {
 
   constructor(
     private bus: EventBus,
-    private config: AgentConfig
+    private config: AgentConfig,
+    private db?: Database // Optional: database for persistent duplicate prevention
   ) {
     this.maxConcurrentJobs = (config as any).maxConcurrentJobs || 3;
     this.setupEventListeners();
+    if (this.db) {
+      this.loadProcessedJobsFromDatabase();
+    }
   }
+
+  /**
+   * Load recently processed jobs from database to restore state after restart
+   * This ensures we don't re-process jobs even if the server restarts
+   */
+  private async loadProcessedJobsFromDatabase(): Promise<void> {
+    if (!this.db) return;
+    try {
+      const recentJobs = await this.db.getRecentJobs(500); // Load last 500 processed jobs
+      recentJobs.forEach((job) => {
+        this.processedJobsCache.add(job.job_id);
+      });
+      console.log(`[Orchestrator] Loaded ${recentJobs.length} recently processed jobs from database`);
+    } catch (error) {
+      console.error('[Orchestrator] Failed to load processed jobs from database:', error);
+      // Continue gracefully without DB state
+    }
+  }
+
 
   /**
    * Initialize orchestrator: wire up event listeners for all stages
@@ -40,13 +66,17 @@ export class Orchestrator {
 
     // Job received → schedule for processing
     this.bus.on('job_received', (data) => {
-      // Guard: duplicate prevention
+      // Guard 1: check if job was already processed (in memory or database)
       if (this.inFlightJobs.has(data.id)) {
-        console.warn(`[Orchestrator] Duplicate job ignored: ${data.id}`);
+        console.warn(`[Orchestrator] Duplicate job ignored (in-flight): ${data.id}`);
+        return;
+      }
+      if (this.processedJobsCache.has(data.id)) {
+        console.warn(`[Orchestrator] Duplicate job ignored (already processed): ${data.id}`);
         return;
       }
 
-      // Guard: rate limiting
+      // Guard 2: rate limiting
       if (this.inFlightJobs.size >= this.maxConcurrentJobs) {
         console.warn(`[Orchestrator] Job queued (at capacity ${this.maxConcurrentJobs}): ${data.id}`);
         return;
@@ -70,6 +100,7 @@ export class Orchestrator {
       this.metrics.jobsCompleted++;
       this.transitionTo('completed');
       this.inFlightJobs.delete(data.id);
+      this.processedJobsCache.add(data.id); // Mark as processed for duplicate prevention
     });
   }
 

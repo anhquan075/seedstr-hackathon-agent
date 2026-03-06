@@ -5,6 +5,7 @@ import { config } from './config.js';
 import { logger } from './logger.js';
 import { SSEServer } from './sse-server.js';
 import { createAgentPipeline, type ComposedAgentPipeline } from './composition-root.js';
+import { database, type Database } from './db.js';
 import type { AgentConfig } from './types.js';
 
 /**
@@ -24,11 +25,13 @@ export class AgentRunner extends EventEmitter {
   private sseServer: SSEServer;
   private pipeline?: ComposedAgentPipeline;
   private config: AgentConfig;
+  private db?: Database;
   private lastExecutionState?: { prompt: string; jobId: string; timestamp: number };
 
-  constructor(config: AgentConfig) {
+  constructor(config: AgentConfig, db?: Database) {
     super();
     this.config = config;
+    this.db = db;
     this.sseServer = new SSEServer(8080); // Port 8080 for both local and production
     this.setupSSEHandlers();
   }
@@ -45,8 +48,8 @@ export class AgentRunner extends EventEmitter {
     try {
       logger.info('Starting AgentRunner v2 with ComposedAgentPipeline...');
 
-      // Initialize composition root — wires all 6 modules
-      this.pipeline = await createAgentPipeline(this.config, this.sseServer);
+      // Initialize composition root — wires all 6 modules with database
+      this.pipeline = await createAgentPipeline(this.config, this.sseServer, this.db);
       
       // Start pipeline (Watcher polling + all modules)
       await this.pipeline.start();
