@@ -390,16 +390,6 @@ async claimJob(jobId: string): Promise<boolean> {
 - **Layer 3 (Recovery)**: ~100-500ms on startup (Load from DB)
 - **Total Overhead**: <2% per job processing
 
-### Documentation
-
-For detailed documentation with ASCII diagrams and Mermaid visualizations:
-- [`RACE_CONDITION_PREVENTION.md`](./RACE_CONDITION_PREVENTION.md) - Architecture and implementation
-- [`race-condition-visual-diagrams.md`](./race-condition-visual-diagrams.md) - ASCII flow diagrams
-- [`race-condition-mermaid-diagrams.md`](./race-condition-mermaid-diagrams.md) - Mermaid diagrams
-- [`RACE_CONDITION_COMPLETE_DOCS.md`](./RACE_CONDITION_COMPLETE_DOCS.md) - Complete technical guide
-
-
-
 ## Testing
 
 ### Unit Tests
