@@ -260,10 +260,10 @@ export default function Dashboard() {
               className="text-3xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 uppercase"
               style={{ fontFamily: "var(--font-orbitron)" }}
             >
-              Dashboard
+              🔥 Prometheus Control Center
             </h1>
             <p className="text-xs text-blue-400/70 tracking-widest uppercase">
-              System Monitoring Interface
+              Autonomous Job Execution & Monitoring Hub
             </p>
           </div>
         </div>
