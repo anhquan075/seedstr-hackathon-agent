@@ -327,7 +327,7 @@ railway up
 - Check status: `railway status`
 - View metrics: Railway Dashboard → seedstr-hackathon-agent project
 
-## Race Condition Prevention (Phase 4)
+## Race Condition Prevention
 
 The agent implements a three-layer race condition prevention system to guarantee **at-most-once** job execution across multiple instances and server restarts:
 
