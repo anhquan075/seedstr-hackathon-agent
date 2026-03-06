@@ -39,16 +39,19 @@ export class Orchestrator {
 
   /**
    * Load recently processed jobs from database to restore state after restart
-   * This ensures we don't re-process jobs even if the server restarts
+   * Only loads jobs with 'processing' status to prevent duplicate concurrent execution
+   * Completed/failed jobs are allowed to be re-executed
    */
   private async loadProcessedJobsFromDatabase(): Promise<void> {
     if (!this.db) return;
     try {
-      const recentJobs = await this.db.getRecentJobs(500); // Load last 500 processed jobs
-      recentJobs.forEach((job) => {
+      const recentJobs = await this.db.getRecentJobs(500); // Load last 500 recent jobs
+      // Only track jobs currently PROCESSING to prevent duplicate concurrent execution
+      const processingJobs = recentJobs.filter((job) => job.status === 'processing');
+      processingJobs.forEach((job) => {
         this.processedJobsCache.add(job.job_id);
       });
-      console.log(`[Orchestrator] Loaded ${recentJobs.length} recently processed jobs from database`);
+      console.log(`[Orchestrator] Loaded ${processingJobs.length} processing jobs from database (skipped ${recentJobs.length - processingJobs.length} completed/failed jobs)`);
     } catch (error) {
       console.error('[Orchestrator] Failed to load processed jobs from database:', error);
       // Continue gracefully without DB state
