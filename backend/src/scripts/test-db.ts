@@ -7,9 +7,13 @@ import pg from 'pg';
 
 const { Pool } = pg;
 
-// Use Railway public TCP proxy URL (requires SSL)
-const DATABASE_URL = process.env.DATABASE_URL || 
-  'REDACTED_DATABASE_URL';
+// Must set DATABASE_URL environment variable
+const DATABASE_URL = process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+  console.error('❌ DATABASE_URL environment variable is required');
+  process.exit(1);
+}
 
 async function main() {
   console.log('Testing PostgreSQL connection...\n');
