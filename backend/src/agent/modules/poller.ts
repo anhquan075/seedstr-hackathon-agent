@@ -1,7 +1,7 @@
 import { SeedstrAPIClient } from '../api-client.js';
 import { config as configManager } from '../config.js';
-import { database } from '../db.js';
 import type { EventBus } from '../core/event-bus.js';
+import { database } from '../db.js';
 import { JobEligibilityValidator, type AgentCapabilities } from '../job-eligibility-validator.js';
 import { logger } from '../logger.js';
 import type { AgentConfig } from '../types.js';
@@ -255,5 +255,4 @@ export class SeedstrPoller {
     }
   }
 }
-
 export default SeedstrPoller;
