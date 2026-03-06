@@ -66,11 +66,21 @@ export class Database {
           job_id VARCHAR(255) NOT NULL UNIQUE,
           status VARCHAR(50) NOT NULL DEFAULT 'completed',
           processed_at BIGINT NOT NULL,
-          created_at TIMESTAMP DEFAULT NOW()
+          created_at TIMESTAMP DEFAULT NOW(),
+          finished_at TIMESTAMP DEFAULT NOW()
         )
       `);
       
       // Create index for faster lookups
+      await this.pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_processed_jobs_job_id ON processed_jobs(job_id)
+      `);
+      
+      // Add finished_at column if it doesn't exist (migration for existing databases)
+      await this.pool.query(`
+        ALTER TABLE processed_jobs
+        ADD COLUMN IF NOT EXISTS finished_at TIMESTAMP DEFAULT NOW()
+      `);
       await this.pool.query(`
         CREATE INDEX IF NOT EXISTS idx_processed_jobs_job_id ON processed_jobs(job_id)
       `);

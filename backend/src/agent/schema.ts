@@ -6,6 +6,7 @@ export const processedJobs = pgTable('processed_jobs', {
   status: varchar('status', { length: 50 }).notNull().default('completed'),
   processedAt: bigint('processed_at', { mode: 'number' }).notNull(),
   createdAt: timestamp('created_at').defaultNow(),
+  finishedAt: timestamp('finished_at').defaultNow(),
 });
 
 export type ProcessedJob = typeof processedJobs.$inferSelect;
