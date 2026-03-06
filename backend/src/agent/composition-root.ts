@@ -190,10 +190,28 @@ apiClient.getMeV2()
 
       logger.info(`[CompositionRoot] Job ${data.id} completed`);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error(`[CompositionRoot] Processing failed for job ${data.id}:`, error);
+      
+      // Handle 409 Conflict: job already submitted (treat as success)
+      if (errorMessage.includes('409') || errorMessage.includes('Conflict') || errorMessage.includes('already submitted')) {
+        logger.info(`[CompositionRoot] Job ${data.id} already submitted (409 Conflict) - marking as completed`);
+        // Mark as completed in database to prevent retries
+        await database?.markJobProcessed(data.id, 'completed');
+        eventBus.emit('job_completed', {
+          id: data.id,
+          output: '(Job already submitted on Seedstr)',
+          outputTruncated: '(Already submitted)',
+          responseId: `conflict-${data.id}`,
+          timestamp: Date.now(),
+          responseType: 'TEXT',
+        });
+        return;
+      }
+      
       eventBus.emit('job_failed', {
         id: data.id,
-        error: `Job failed: ${error instanceof Error ? error.message : String(error)}`,
+        error: `Job failed: ${errorMessage}`,
         stage: 'generating',
         timestamp: Date.now(),
       });
