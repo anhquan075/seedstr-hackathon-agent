@@ -19,7 +19,7 @@ RUN npx tsc -p tsconfig.json
 
 # --- Stage 3: Final Production Image ---
 FROM node:22-bookworm-slim
-RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y wget ffmpeg && rm -rf /var/lib/apt/lists/*
 RUN npm install -g pnpm
 WORKDIR /app/backend
 

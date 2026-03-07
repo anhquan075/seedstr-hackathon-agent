@@ -57,10 +57,22 @@ export class PreflightChecker {
     return result;
    }
 
-   // Check 3: Wallet configuration
+   // Check 4: Wallet configuration
    if (!meData.walletAddress) {
     result.errors.push('Wallet address not configured');
     return result;
+   }
+
+   // Check 5: FFmpeg availability (required for Video Editing skill)
+   if (meData.skills && meData.skills.includes('Video Editing')) {
+    try {
+     const { execSync } = await import('child_process');
+     execSync('ffmpeg -version');
+     logger.info(' FFmpeg check PASSED');
+    } catch (e) {
+     result.errors.push('FFmpeg is required for the Video Editing skill but not found in PATH');
+     return result;
+    }
    }
 
    logger.info(' All preflight checks passed');
@@ -91,6 +103,7 @@ export class PreflightChecker {
   walletAddress?: string;
   walletType?: string;
   isVerified?: boolean;
+  skills?: string[];
  }> {
   try {
    const me = await this.apiClient.getMe();
@@ -103,6 +116,7 @@ export class PreflightChecker {
    const walletAddress = me.walletAddress || me.wallet?.address;
    const walletType = me.walletType || me.wallet?.type;
    const isVerified = me.verification?.isVerified || me.isVerified;
+   const skills = me.skills || [];
 
    if (!agentId) {
     throw new Error('Agent ID not found in /me response');
@@ -114,6 +128,7 @@ export class PreflightChecker {
     walletAddress,
     walletType,
     isVerified,
+    skills,
    };
   } catch (error) {
    const errorMsg =
