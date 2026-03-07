@@ -21,6 +21,12 @@ export class SeedstrPoller {
     private capabilities: AgentCapabilities
   ) {
     this.apiClient = new SeedstrAPIClient(config.seedstrApiKey || config.apiKey);
+    const apiKeyUsed = config.seedstrApiKey ? 'seedstrApiKey' : config.apiKey ? 'apiKey' : 'none';
+    const apiKeyStatus = config.seedstrApiKey || config.apiKey ? '✓ Set' : '✗ Missing';
+    logger.info(`[SeedstrPoller] API Key source: ${apiKeyUsed} (${apiKeyStatus})`);
+    if (!config.seedstrApiKey && !config.apiKey) {
+      logger.warn('[SeedstrPoller] ⚠️  WARNING: No API key configured! API calls will fail.');
+    }
     this.validator = new JobEligibilityValidator();
     this.instanceId = this.generateInstanceId();
     logger.info(`[SeedstrPoller] Initialized with instance ID: ${this.instanceId}`);
