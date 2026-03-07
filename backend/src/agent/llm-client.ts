@@ -47,8 +47,9 @@ export class LLMClient {
   private readonly MODEL_TIERS = {
     premium: 'anthropic/claude-3.5-sonnet',                       // Highest quality for complex/high-budget
     fast: 'google/gemini-2.0-flash-001',                         // High speed, low cost, large context
-    grok: 'x-ai/grok-4.1-fast',                                  // Latest Grok 4.1 Fast via OpenRouter
-    balanced: 'meta-llama/llama-3.3-70b-instruct',               // Good balance of speed/quality
+    grok: 'x-ai/grok-4.1-fast',                                  // Latest Grok 4.1 Fast
+    balanced: 'deepseek/deepseek-chat',                          // Value King: frontier reasoning at low cost
+    coder: 'qwen/qwen-2.5-coder-32b-instruct',                   // Specialized for pure code generation
     budget: 'openai/gpt-4o-mini',                                // Very cheap, reliable
   };
 
@@ -57,7 +58,7 @@ export class LLMClient {
     models?: string[];
   }) {
     this.openrouterApiKey = config.openrouterApiKey;
-    // Default fallback chain optimized for resilience (Prioritizing Grok/Gemini for speed)
+    // Optimized fallback chain: fast → grok → balanced → premium
     this.models = config.models || [
       this.MODEL_TIERS.fast,
       this.MODEL_TIERS.grok,
@@ -116,8 +117,10 @@ export class LLMClient {
     // Assess complexity if prompt provided
     const complexity = prompt ? this.assessComplexity(prompt) : 'medium';
     
+    // Check if it's a technical/coding task
+    const isTechnical = prompt && /code|script|algorithm|bug|fix|implement|function|api|database|react|typescript|backend|frontend/i.test(prompt);
+
     // High budget jobs deserve premium quality
-    // High budget ($5+): Use premium model for everything
     if (budget >= 5) {
       logger.info(`High budget ($${budget}), complexity: ${complexity}, using premium model`);
       return this.MODEL_TIERS.premium;
@@ -130,18 +133,22 @@ export class LLMClient {
         logger.info(`Medium budget ($${budget}), complex job, using premium model`);
         return this.MODEL_TIERS.premium;
       }
-      // Medium/Simple jobs use balanced model
+      // Technical medium jobs use specialized coder
+      if (isTechnical) {
+        logger.info(`Medium budget ($${budget}), technical job, using coder model`);
+        return this.MODEL_TIERS.coder;
+      }
+      // Medium/Simple jobs use balanced model (DeepSeek)
       logger.info(`Medium budget ($${budget}), ${complexity} job, using balanced model`);
       return this.MODEL_TIERS.balanced;
     }
     
     // Low budget (<$2): Prioritize speed and cost
-    // Try fast/free first, let fallback chain handle failures
-    if (complexity === 'complex') {
-      logger.info(`Low budget ($${budget}), complex job, trying fast/free model (fallback available)`);
-      return this.MODEL_TIERS.fast;
+    if (isTechnical && complexity !== 'simple') {
+      logger.info(`Low budget ($${budget}), technical job, using coder model`);
+      return this.MODEL_TIERS.coder;
     }
-    
+
     // Default to fast/free model for low budget simple/medium jobs
     logger.info(`Low budget ($${budget}), ${complexity} job, using fast/free model`);
     return this.MODEL_TIERS.fast;

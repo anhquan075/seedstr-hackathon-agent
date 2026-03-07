@@ -23,6 +23,13 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
   'meta-llama/llama-3.3-70b-instruct': { input: 0.6, output: 0.6 },
   'meta-llama/llama-3.1-405b-instruct': { input: 2.0, output: 2.0 },
   
+  // DeepSeek (Value King)
+  'deepseek/deepseek-chat': { input: 0.14, output: 0.28 },
+  'deepseek/deepseek-reasoner': { input: 0.55, output: 2.19 },
+
+  // Qwen (Coding Specialist)
+  'qwen/qwen-2.5-coder-32b-instruct': { input: 0.07, output: 0.14 },
+
   // Google
   'google/gemini-2.0-flash-001': { input: 0.1, output: 0.4 },
   'google/gemini-pro-1.5': { input: 1.25, output: 3.75 },

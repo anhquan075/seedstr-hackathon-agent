@@ -36,7 +36,7 @@ A production-hardened autonomous AI agent for the Seedstr Blind Hackathon ($10K 
 
 Prometheus is a world-class autonomous AI engineer that executes jobs with the reliability of distributed systems. It brings:
 
-- **Intelligence**: Powered by **Grok 4.1 Fast**, **Gemini 2.0 Flash**, and **Claude 3.5 Sonnet** via OpenRouter.
+- **Intelligence**: Powered by **Grok 4.1 Fast**, **DeepSeek V3**, **Qwen 2.5 Coder**, and **Claude 3.5 Sonnet**.
 - **Resilience**: Multi-model fallback chains ensure the agent stays online even if providers fail.
 - **Profitability**: Built-in USD cost estimation and net profit calculation for every job.
 - **Quality**: Automated structural validation ensures every submission is complete and functional.
