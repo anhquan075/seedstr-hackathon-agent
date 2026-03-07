@@ -1,41 +1,44 @@
-# Seedstr Agent Server - Railway Deployment
-FROM node:22-alpine
-
-# Install pnpm
+# --- Stage 1: Build Frontend ---
+FROM node:22-alpine AS frontend-builder
 RUN npm install -g pnpm
-
-WORKDIR /app
-
-# Copy all source code first
-COPY . .
-
-# Build frontend
 WORKDIR /app/frontend
-RUN pnpm install && pnpm run build
+COPY frontend/package.json frontend/pnpm-lock.yaml* ./
+RUN pnpm install --no-frozen-lockfile
+COPY frontend/ ./
+RUN pnpm run build
 
-# Build backend (use tsc directly, not the build script that tries to cd to frontend)
+# --- Stage 2: Build Backend ---
+FROM node:22-alpine AS backend-builder
+RUN npm install -g pnpm
 WORKDIR /app/backend
-RUN pnpm install && npx tsc -p tsconfig.json
+COPY backend/package.json backend/pnpm-lock.yaml* ./
+RUN pnpm install --no-frozen-lockfile
+COPY backend/ ./
+# We use tsc directly to avoid any recursive scripts
+RUN npx tsc -p tsconfig.json
 
-# Copy frontend build output to backend's out directory (where SSE server expects it)
-RUN mkdir -p out && cp -r ../frontend/out/* out/ 2>/dev/null || true
-
-# Create state directory
-RUN mkdir -p /root/.seedstr && chmod 755 /root/.seedstr
-
-# Set environment
-ENV NODE_ENV=production
-
-# Set working directory back to backend for startup
+# --- Stage 3: Final Production Image ---
+FROM node:22-alpine
+RUN npm install -g pnpm
 WORKDIR /app/backend
-ENV NODE_ENV=production
 
-# Expose port 8080 for Railway
+# Copy built backend files
+COPY --from=backend-builder /app/backend/dist ./dist
+COPY --from=backend-builder /app/backend/package.json ./
+COPY --from=backend-builder /app/backend/node_modules ./node_modules
+COPY --from=backend-builder /app/backend/migrations ./migrations
+
+# Copy built frontend files to the static 'out' directory expected by the server
+COPY --from=frontend-builder /app/frontend/out ./out
+
+# Setup environment
+ENV NODE_ENV=production
+ENV PORT=8080
 EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-8080}/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
-# Start the agent server
-CMD ["pnpm", "run", "start"]
+# Run the backend agent server
+CMD ["node", "dist/agent/cli.js", "start"]
