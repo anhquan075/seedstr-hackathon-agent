@@ -259,7 +259,7 @@ export default function Dashboard() {
             </h1>
             <div className="flex items-center gap-2 text-[10px] text-orange-500/70 font-bold uppercase tracking-[0.2em]">
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping"></span>
-              Neural Network Active // v2.5.0
+              Neural Network Active
             </div>
           </div>
         </div>
@@ -452,19 +452,13 @@ export default function Dashboard() {
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse"></span>
-            PROMETHEUS_CORE_OS // V2.5.0
+            PROMETHEUS_CORE_OS
           </div>
           <div className="hidden md:block opacity-50">
             ENGINE: GROK_4.1_FAST & GEMINI_2.0_PRO
           </div>
         </div>
         
-        <div className="flex items-center gap-4 py-1 px-4 bg-slate-900/40 border border-slate-800 rounded cyber-border">
-          <span className="text-orange-500/50">SEEDSTR_BLIND_HACKATHON_2026</span>
-          <span className="w-px h-3 bg-slate-800"></span>
-          <span className="text-slate-400">STATUS: OPTIMIZED</span>
-        </div>
-
         <div className="flex items-center gap-6">
           <div className="hidden lg:block text-slate-700">
             COORD: 37.7749° N, 122.4194° W
