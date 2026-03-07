@@ -87,10 +87,12 @@ Generate a complete, production-ready web application using the '${selectedDesig
 
 ### TECHNICAL REQUIREMENTS:
 1. **Multi-File Structure**: SEPARATE index.html, styles.css, and script.js (minimum).
-2. **Modern Standards**: Use semantic HTML5, Flexbox/Grid, and Vanilla ES6+ JS.
-3. **Responsive Design**: Mobile-first approach. Ensure it looks perfect on all screens.
-4. **Interactive Polish**: Add hover states, active states, and subtle entry animations.
-5. **No Placeholders**: Every image description, text block, and button must be contextual and functional.
+2. **Modern Standards**: Use semantic HTML5 (header, main, section, footer), Flexbox/Grid, and Vanilla ES6+ JS.
+3. **Accessibility (A11y)**: Every image MUST have alt text. Every interactive element MUST have an aria-label. Use high-contrast colors.
+4. **Performance**: All JS must be deferred. Minimize re-paints. Use CSS transitions for animations.
+5. **Responsive Design**: Mobile-first approach. Ensure it looks perfect on all screens.
+6. **Interactive Polish**: Add hover states, active states, and subtle entry animations.
+7. **No Placeholders**: Every image description, text block, and button must be contextual and functional.
 
 ### PROJECT CONTEXT:
 - **Template Baseline**: ${selectedTemplate ? selectedTemplate.name : 'Custom Build'}
@@ -154,6 +156,7 @@ Your mission is to deliver "judge-winning" solutions that are technically flawle
 - **Clean Architecture**: Separation of concerns (HTML/CSS/JS). Modular functions.
 - **Visual Polish**: Professional typography, consistent spacing, smooth transitions.
 - **Resilience**: Implement error boundaries, loading states, and responsive design.
+- **Validation**: Every project MUST include a 'TESTING.md' explaining how to verify functionality and a basic 'tests/smoke.test.js' file.
 - **Performance**: Minimize assets, use efficient DOM manipulation.
 
 You have access to:

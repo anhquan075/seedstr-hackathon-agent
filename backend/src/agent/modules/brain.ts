@@ -50,11 +50,26 @@ export class Brain {
     ];
 
     try {
-      logger.info(`[Brain] Starting generation for job ${jobId}...`);
+      logger.info(`[Brain] 🔍 RESEARCH PHASE: Analyzing prompt requirements for job ${jobId}...`);
+      
+      // Perform quick research for modern standards
+      let researchContext = '';
+      try {
+        const research = await this.llmClient.generate({
+          messages: [{ role: 'user', content: `What are the top 3 modern UI/UX trends and essential technical features for: "${prompt}" in 2026? Provide a concise summary.` }],
+          budget: 0.5,
+        });
+        researchContext = `\n\n### MODERN STANDARDS RESEARCH:\n${research.text}`;
+        logger.info(`[Brain] 🔍 Research complete. context gathered.`);
+      } catch (e) {
+        logger.warn(`[Brain] 🔍 Research failed, proceeding with baseline knowledge.`);
+      }
+
+      logger.info(`[Brain] 🏗️ ARCHITECT PHASE: Starting generation for job ${jobId}...`);
       
       while (attempts <= this.MAX_CORRECTION_ATTEMPTS) {
         attempts++;
-        const userMsg: LLMMessage = { role: 'user', content: currentPrompt };
+        const userMsg: LLMMessage = { role: 'user', content: currentPrompt + researchContext };
         history.push(userMsg);
 
         const generation = await this.llmClient.generate({
@@ -78,12 +93,40 @@ export class Brain {
           type: this.mapLanguageToFileType(f.path.split('.').pop() || 'text')
         }));
 
-        // Combine files (prefer tool-created files if paths collide)
         const fileMap = new Map<string, BuildFile>();
         extractedFiles.forEach(f => fileMap.set(f.path, f));
         formattedToolFiles.forEach(f => fileMap.set(f.path, f));
         
-        const allFiles = Array.from(fileMap.values());
+        let allFiles = Array.from(fileMap.values());
+
+        // --- NEW: AI JUDGE PASS (The Critic) ---
+        if (attempts === 1) {
+          logger.info(`[Brain] ⚖️ JUDGE PHASE: Reviewing architectural quality for job ${jobId}...`);
+          const reviewPrompt = `You are the AI Judge for the Seedstr Hackathon. Review the code generated above.
+Check for:
+1. COMPLETENESS: Are all files (index.html, styles.css, script.js) present and correctly linked?
+2. QUALITY: Is the code clean, modular, and well-commented?
+3. DESIGN: Is the UI professional and visually impressive?
+4. ACCESSIBILITY: Are aria-labels and semantic HTML used?
+
+If there are any issues, list them clearly. If the code is perfect, respond with "PASSED".`;
+
+          const review = await this.llmClient.generate({
+            messages: [...history, { role: 'user', content: reviewPrompt }],
+            budget: 1, // Use a fast model for review
+          });
+
+          if (!review.text.includes('PASSED')) {
+            logger.warn(`[Brain] ⚖️ Judge found issues: ${review.text.substring(0, 100)}...`);
+            currentPrompt = `The AI Judge found the following issues in your previous output. Please fix them and provide the FINAL perfect version:
+${review.text}
+
+Ensure every file is complete and ready for production.`;
+            continue; // Trigger correction loop with judge's feedback
+          }
+          logger.info(`[Brain] ✅ Judge PASSED the project on first attempt.`);
+        }
+
         const validation = this.validator.validate(allFiles);
 
         if (validation.isValid) {
