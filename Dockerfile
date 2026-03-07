@@ -1,5 +1,5 @@
 # --- Stage 1: Build Frontend ---
-FROM node:22-alpine AS frontend-builder
+FROM node:22-bookworm-slim AS frontend-builder
 RUN npm install -g pnpm
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/pnpm-lock.yaml* ./
@@ -8,7 +8,7 @@ COPY frontend/ ./
 RUN pnpm run build
 
 # --- Stage 2: Build Backend ---
-FROM node:22-alpine AS backend-builder
+FROM node:22-bookworm-slim AS backend-builder
 RUN npm install -g pnpm
 WORKDIR /app/backend
 COPY backend/package.json backend/pnpm-lock.yaml* ./
@@ -18,7 +18,8 @@ COPY backend/ ./
 RUN npx tsc -p tsconfig.json
 
 # --- Stage 3: Final Production Image ---
-FROM node:22-alpine
+FROM node:22-bookworm-slim
+RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
 RUN npm install -g pnpm
 WORKDIR /app/backend
 
