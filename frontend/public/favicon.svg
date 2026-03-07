@@ -1,85 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
   <defs>
-    <!-- Flame gradient: bright yellow core to deep red outer -->
-    <linearGradient id="flameGradient" x1="50%" y1="0%" x2="50%" y2="100%">
-      <stop offset="0%" style="stop-color:#FFEB3B;stop-opacity:1" />
-      <stop offset="35%" style="stop-color:#FFD700;stop-opacity:1" />
-      <stop offset="65%" style="stop-color:#FF8C00;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#FF6E6E;stop-opacity:1" />
+    <!-- Core gradient: vibrant orange to deep red -->
+    <linearGradient id="coreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF9900;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF4D00;stop-opacity:1" />
     </linearGradient>
-    
-    <!-- Inner bright flame for core effect -->
-    <linearGradient id="innerFlame" x1="50%" y1="10%" x2="50%" y2="90%">
-      <stop offset="0%" style="stop-color:#FFFF99;stop-opacity:1" />
-      <stop offset="40%" style="stop-color:#FFD700;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#FF8C00;stop-opacity:0.8" />
-    </linearGradient>
-    
-    <!-- Handle gradient: metallic silver to copper -->
-    <linearGradient id="handleGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#C0C0C0;stop-opacity:1" />
-      <stop offset="50%" style="stop-color:#E8E8E8;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#B8860B;stop-opacity:1" />
-    </linearGradient>
-    
-    <!-- Glow filter for flame -->
-    <filter id="flameGlow">
-      <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
-      <feMerge>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-    
-    <!-- Drop shadow for torch handle -->
-    <filter id="handleShadow">
-      <feOffset dx="1" dy="1" result="offsetblur"/>
-      <feFlood flood-color="#000000" flood-opacity="0.3" result="offsetcolor"/>
-      <feComposite in="offsetcolor" in2="offsetblur" operator="in" result="offsetblur"/>
-      <feMerge>
-        <feMergeNode in="offsetblur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <!-- Neon glow filter -->
+    <filter id="neonGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
   </defs>
   
-  <!-- Flame - outer layer (red-orange) -->
-  <path d="M 128 40 
-           C 110 55 95 75 95 100 
-           C 95 120 105 140 128 175 
-           C 151 140 161 120 161 100 
-           C 161 75 146 55 128 40 Z" 
-        fill="url(#flameGradient)" filter="url(#flameGlow)"/>
+  <!-- Outer Geometric Flame (Subtle) -->
+  <path d="M128 30 L190 150 L128 190 L66 150 Z" fill="#FF4D00" opacity="0.4" />
   
-  <!-- Flame - inner bright core (yellow) -->
-  <path d="M 128 50 
-           C 115 62 105 78 105 100 
-           C 105 118 113 138 128 160 
-           C 143 138 151 118 151 100 
-           C 151 78 141 62 128 50 Z" 
-        fill="url(#innerFlame)" filter="url(#flameGlow)"/>
+  <!-- Inner Geometric Flame (Bright) -->
+  <path d="M128 50 L160 130 L128 160 L96 130 Z" fill="#FFCC00" opacity="0.8" filter="url(#neonGlow)" />
   
-  <!-- Torch handle - main body (metallic) -->
-  <rect x="116" y="165" width="24" height="75" rx="4" ry="4" 
-        fill="url(#handleGradient)" filter="url(#handleShadow)"/>
+  <!-- The AI Core (Rotating Square) -->
+  <rect x="93" y="125" width="70" height="70" rx="6" transform="rotate(45 128 160)" 
+        fill="url(#coreGradient)" stroke="#FFFFFF" stroke-width="4" filter="url(#neonGlow)" />
   
-  <!-- Handle grip lines for detail -->
-  <line x1="116" y1="185" x2="140" y2="185" stroke="#888888" stroke-width="1.5" opacity="0.6"/>
-  <line x1="116" y1="205" x2="140" y2="205" stroke="#888888" stroke-width="1.5" opacity="0.6"/>
-  <line x1="116" y1="225" x2="140" y2="225" stroke="#888888" stroke-width="1.5" opacity="0.6"/>
+  <!-- Circuitry Accents -->
+  <circle cx="128" cy="160" r="4" fill="white" />
+  <path d="M128 160 L128 100 M128 160 L188 160 M128 160 L68 160 M128 160 L128 220" 
+        stroke="white" stroke-width="3" opacity="0.6" stroke-linecap="round" />
   
-  <!-- Handle base - decorative -->
-  <ellipse cx="128" cy="242" rx="14" ry="6" fill="#B8860B" opacity="0.8"/>
-  <ellipse cx="128" cy="240" rx="14" ry="5" fill="#DAA520" opacity="0.9"/>
-  
-  <!-- Flame flicker effect - left side -->
-  <path d="M 110 65 Q 105 80 110 95" 
-        stroke="#FFFF99" stroke-width="2.5" fill="none" opacity="0.7" filter="url(#flameGlow)"/>
-  
-  <!-- Flame flicker effect - right side -->
-  <path d="M 146 65 Q 151 80 146 95" 
-        stroke="#FFFF99" stroke-width="2.5" fill="none" opacity="0.7" filter="url(#flameGlow)"/>
-  
-  <!-- Glow ring around flame (subtle) -->
-  <circle cx="128" cy="105" r="75" fill="none" stroke="#FFEB3B" stroke-width="1" opacity="0.15"/>
+  <!-- Bottom Energy Pulse -->
+  <ellipse cx="128" cy="235" rx="80" ry="12" fill="none" stroke="#FF9900" stroke-width="2" opacity="0.2">
+    <animate attributeName="rx" values="60;90;60" dur="3s" repeatCount="indefinite" />
+    <animate attributeName="opacity" values="0.1;0.4;0.1" dur="3s" repeatCount="indefinite" />
+  </ellipse>
 </svg>
