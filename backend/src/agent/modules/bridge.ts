@@ -128,6 +128,18 @@ export class Bridge {
       });
     });
 
+    this.eventBus.on('job_metrics', (data) => {
+      logger.info('[Bridge] Received job_metrics event', { id: data.id, totalCost: data.totalCost });
+      this.sseServer.broadcast({
+        type: 'job_metrics',
+        timestamp: Date.now(),
+        data: {
+          ...data,
+          timestamp: data.timestamp,
+        },
+      });
+    });
+
 
     logger.info('[Bridge] Started. Listening to event bus...');
   }

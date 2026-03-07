@@ -16,6 +16,17 @@ export interface Job {
   budget?: number;
   skills?: string[];
   uploadedFiles?: { name: string; size: number }[];
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  cost?: {
+    inputCost: number;
+    outputCost: number;
+    totalCost: number;
+    profit?: number;
+  };
 }
 
 interface JobStore {
@@ -28,6 +39,8 @@ interface JobStore {
     failedJobs: number;
     lastJobTime: number;
     avgResponseTime: number; // Placeholder
+    totalCost: number;
+    totalProfit: number;
   };
 }
 
@@ -41,6 +54,8 @@ export const useJobStore = create<JobStore>(
         failedJobs: 0,
         lastJobTime: 0,
         avgResponseTime: 0,
+        totalCost: 0,
+        totalProfit: 0,
       },
       upsertJob: (id, status, data) => set((state) => {
         const existing = state.jobs.find((j) => j.id === id);
@@ -66,6 +81,10 @@ export const useJobStore = create<JobStore>(
         const completed = updatedJobs.filter((j) => j.status === "completed").length;
         const failed = updatedJobs.filter((j) => j.status === "failed").length;
         
+        // Calculate aggregate cost and profit
+        const totalCost = updatedJobs.reduce((acc, j) => acc + (j.cost?.totalCost || 0), 0);
+        const totalProfit = updatedJobs.reduce((acc, j) => acc + (j.cost?.profit || 0), 0);
+        
         return {
             jobs: updatedJobs,
             metrics: {
@@ -73,6 +92,8 @@ export const useJobStore = create<JobStore>(
                 totalJobs: updatedJobs.length,
                 completedJobs: completed,
                 failedJobs: failed,
+                totalCost,
+                totalProfit,
                 lastJobTime: (status === "completed" || status === "failed") ? Date.now() : state.metrics.lastJobTime,
             }
         };

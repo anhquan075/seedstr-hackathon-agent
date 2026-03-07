@@ -310,7 +310,7 @@ export default function Dashboard() {
       </header>
 
       {/* Production Metrics */}
-      <section className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <section className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
         <MetricCard
           label="Uptime"
           metricKey="uptime"
@@ -341,6 +341,18 @@ export default function Dashboard() {
           metricKey="successRate"
           icon={Activity}
           color="cyan"
+        />
+        <MetricCard
+          label="Total Cost"
+          metricKey="totalCost"
+          icon={Zap}
+          color="red"
+        />
+        <MetricCard
+          label="Net Profit"
+          metricKey="totalProfit"
+          icon={Zap}
+          color="green"
         />
       </section>
 

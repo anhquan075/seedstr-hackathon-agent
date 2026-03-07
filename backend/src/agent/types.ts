@@ -1,3 +1,10 @@
+import type { LanguageModelUsage } from 'ai';
+
+export interface LLMMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
 export interface SeedstrJob {
   id: string;
   prompt: string;
@@ -143,6 +150,16 @@ export interface BrainOutput {
   llmModel: string;
   tokensUsed?: number;
   generationTimeMs?: number;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  cost?: {
+    inputCost: number;
+    outputCost: number;
+    totalCost: number;
+  };
 }
 
 
@@ -187,6 +204,18 @@ export interface AgentEventMap {
   metrics_update: {
     stage: EngineStage;
     timelineMs: number;
+  };
+
+  job_metrics: {
+    id: string;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    inputCost: number;
+    outputCost: number;
+    totalCost: number;
+    profit: number;
+    timestamp: number;
   };
 
   job_accepted: {

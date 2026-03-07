@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export type MetricKey = 'uptime' | 'totalJobs' | 'completedJobs' | 'failedJobs' | 'successRate' | 'avgResponseTime';
+export type MetricKey = 'uptime' | 'totalJobs' | 'completedJobs' | 'failedJobs' | 'successRate' | 'avgResponseTime' | 'totalCost' | 'totalProfit';
 
 interface MetricDataResult {
   value: string;
@@ -77,6 +77,12 @@ export function useMetricData(metricKey: MetricKey): MetricDataResult {
             break;
           case 'avgResponseTime':
             metricValue = `${(agent.avgResponseTime || 0).toFixed(2)}ms`;
+            break;
+          case 'totalCost':
+            metricValue = `$${(agent.totalCost || 0).toFixed(2)}`;
+            break;
+          case 'totalProfit':
+            metricValue = `$${(agent.totalProfit || 0).toFixed(2)}`;
             break;
           default:
             metricValue = '--';

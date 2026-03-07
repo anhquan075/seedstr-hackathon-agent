@@ -36,6 +36,14 @@ export default function JobCard({
             <Loader className="w-3 h-3 animate-spin" />
           )}
           ID: {job.id.slice(0, 8)}...
+          {job.cost && (
+            <span className="ml-2 text-[10px] text-gray-400">
+              Cost: <span className="text-red-400/80">${job.cost.totalCost.toFixed(3)}</span>
+              {job.cost.profit !== undefined && (
+                <> | Profit: <span className="text-green-400/80">${job.cost.profit.toFixed(2)}</span></>
+              )}
+            </span>
+          )}
         </span>
         <div className="flex flex-col items-end gap-1">
             <span

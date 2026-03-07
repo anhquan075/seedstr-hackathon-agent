@@ -16,6 +16,7 @@ export type SSEEventType =
   | 'job_failed'
   | 'job_found'
   | 'job_generated'
+  | 'job_metrics'
   | 'log'
   | 'error'
   | 'job_accepted'
@@ -251,7 +252,8 @@ export class SSEServer {
           error: null,
         });
         this.logToClients('info', `Job Found: ${jobId} - "${event.data.prompt}" (Budget: ${event.data.budget})`);
-      } else if (event.type === 'job_received') {
+      }
+ else if (event.type === 'job_received') {
         this.jobsMap.set(jobId, {
           id: jobId,
           status: 'received',
@@ -266,6 +268,13 @@ export class SSEServer {
       } else if (event.type === 'job_processing') {
         this.jobsMap.set(jobId, { ...existingJob, status: 'processing', timestamp: event.timestamp });
         this.logToClients('info', `Job Processing: ${jobId} - Stage: ${event.data.stage || 'executing'}`);
+      } else if (event.type === 'job_metrics') {
+        this.jobsMap.set(jobId, { 
+          ...existingJob, 
+          metrics: event.data,
+          timestamp: event.timestamp 
+        });
+        this.logToClients('info', `Job Metrics: ${jobId} - Cost: $${(event.data.totalCost as number)?.toFixed(4)}, Profit: $${(event.data.profit as number)?.toFixed(2)}`);
       } else if (event.type === 'job_completed') {
         this.jobsMap.set(jobId, { ...existingJob, status: 'completed', output: event.data.result, timestamp: event.timestamp, completedAt: event.timestamp });
         this.logToClients('info', `Job Completed: ${jobId}`);
@@ -414,6 +423,12 @@ export class SSEServer {
     const failedJobs = Array.from(this.jobsMap.values()).filter(
       job => job.status === 'failed'
     ).length;
+    
+    // Calculate total cost and profit from metrics
+    const jobsWithMetrics = Array.from(this.jobsMap.values()).filter(job => job.metrics);
+    const totalCost = jobsWithMetrics.reduce((acc, job) => acc + ((job.metrics as any).totalCost || 0), 0);
+    const totalProfit = jobsWithMetrics.reduce((acc, job) => acc + ((job.metrics as any).profit || 0), 0);
+
     const successRate = totalJobs > 0 
       ? Math.round((completedJobs / totalJobs) * 100) 
       : 0;
@@ -430,6 +445,8 @@ export class SSEServer {
         completedJobs,
         failedJobs,
         successRate,
+        totalCost,
+        totalProfit,
         capabilities: [
           'design_system_generation',
           'ui_template_creation',

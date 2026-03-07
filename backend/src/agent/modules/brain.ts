@@ -1,10 +1,14 @@
 import type { EventBus } from '../core/event-bus.js';
-import type { AgentConfig, BrainOutput, BuildFile } from '../types.js';
+import type { AgentConfig, BrainOutput, BuildFile, LLMMessage } from '../types.js';
 import { LLMClient } from '../llm-client.js';
 import { logger } from '../logger.js';
+import { ProjectValidator } from './validator.js';
+import { getSystemPrompt, getFrontendGenerationPrompt } from '../prompts.js';
 
 export class Brain {
   private llmClient: LLMClient;
+  private validator: ProjectValidator;
+  private readonly MAX_CORRECTION_ATTEMPTS = 2;
 
   constructor(
     private bus: EventBus,
@@ -19,42 +23,78 @@ export class Brain {
       openrouterApiKey,
       models: config.models,
     });
+    this.validator = new ProjectValidator();
   }
 
   async generateFromPrompt(jobId: string, prompt: string, budget: number): Promise<BrainOutput> {
     const startTime = Date.now();
+    let currentPrompt = getFrontendGenerationPrompt(prompt);
+    let attempts = 0;
+    const history: LLMMessage[] = [
+      {
+        role: 'system',
+        content: getSystemPrompt(),
+      }
+    ];
 
     try {
       logger.info(`[Brain] Starting generation for job ${jobId}...`);
+      
+      while (attempts <= this.MAX_CORRECTION_ATTEMPTS) {
+        attempts++;
+        const userMsg: LLMMessage = { role: 'user', content: currentPrompt };
+        history.push(userMsg);
 
-      const generation = await this.llmClient.generate({
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-      });
+        const generation = await this.llmClient.generate({
+          messages: history,
+          budget,
+        });
 
-      const generationTimeMs = Date.now() - startTime;
-      const responseText = generation.text;
+        const responseText = generation.text;
+        history.push({ role: 'assistant', content: responseText });
 
-      const brainOutput: BrainOutput = {
-        rawResponse: responseText,
-        files: this.extractFiles(responseText),
+        const files = this.extractFiles(responseText);
+        const validation = this.validator.validate(files);
+
+        if (validation.isValid) {
+          const generationTimeMs = Date.now() - startTime;
+          return {
+            rawResponse: responseText,
+            files,
+            llmModel: 'openrouter-selected',
+            tokensUsed: generation.usage?.totalTokens,
+            generationTimeMs,
+            usage: generation.usage,
+            cost: generation.cost,
+          };
+        }
+
+        // If invalid, prepare fix prompt for next loop
+        logger.warn(`[Brain] Validation failed for job ${jobId} (Attempt ${attempts}/${this.MAX_CORRECTION_ATTEMPTS + 1}):`, validation.errors);
+        
+        if (attempts > this.MAX_CORRECTION_ATTEMPTS) {
+          logger.error(`[Brain] Self-correction failed after ${attempts} attempts for job ${jobId}.`);
+          // Return what we have anyway, or throw
+          break;
+        }
+
+        currentPrompt = `Your previous response had the following errors. Please fix them and provide the corrected output:
+${validation.errors.map(e => `- ${e}`).join('\n')}
+
+IMPORTANT: Ensure you include all necessary files, especially index.html.`;
+      }
+
+      // Final fallback if loop ends without valid state
+      const lastResponse = history[history.length - 1].content;
+      return {
+        rawResponse: lastResponse,
+        files: this.extractFiles(lastResponse),
         llmModel: 'openrouter-selected',
-        tokensUsed: undefined,
-        generationTimeMs,
+        generationTimeMs: Date.now() - startTime,
       };
 
-      logger.info(
-        `[Brain] Generation complete: ${generationTimeMs}ms, ${brainOutput.files.length} files extracted`
-      );
-      logger.info(`[Brain] Raw LLM response (first 500 chars): ${responseText.substring(0, 500)}...`);
-
-      return brainOutput;
     } catch (error) {
-      logger.info(`[Brain] Generation failed for job ${jobId}:`, error);
+      logger.error(`[Brain] Generation failed for job ${jobId}:`, error);
       throw error;
     }
   }

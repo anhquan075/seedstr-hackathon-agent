@@ -113,6 +113,26 @@ export function useSSE(): { logs: LogEntry[]; connectionStatus: "connected" | "d
         } catch (e) {}
       });
 
+      eventSource.addEventListener("job_metrics", (event: MessageEvent) => {
+        try {
+          const data = JSON.parse(event.data);
+          upsertJob(data.id, "processing", {
+            usage: {
+              promptTokens: data.promptTokens,
+              completionTokens: data.completionTokens,
+              totalTokens: data.totalTokens,
+            },
+            cost: {
+              inputCost: data.inputCost,
+              outputCost: data.outputCost,
+              totalCost: data.totalCost,
+              profit: data.profit,
+            }
+          });
+          addLog("info", `Metrics received for ${data.id}: $${data.totalCost.toFixed(4)} cost, $${data.profit.toFixed(2)} profit`);
+        } catch (e) {}
+      });
+
       eventSource.addEventListener("job_completed", (event: MessageEvent) => {
         try {
           const data = JSON.parse(event.data);

@@ -1,12 +1,9 @@
 import { repairJSON } from './json-repair.js';
-import { generateText, streamText } from 'ai';
+import { generateText, streamText, type LanguageModelUsage } from 'ai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { logger } from './logger.js';
-
-export interface LLMMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
+import { calculateLLMCost } from './utils/cost-calculator.js';
+import type { LLMMessage } from './types.js';
 
 export interface LLMGenerateOptions {
   messages: LLMMessage[];
@@ -24,6 +21,16 @@ export interface LLMGenerateResult {
     args: unknown;
   }>;
   finishReason: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  cost?: {
+    inputCost: number;
+    outputCost: number;
+    totalCost: number;
+  };
 }
 
 /**
@@ -38,10 +45,10 @@ export class LLMClient {
 
   // Model tiers for smart routing
   private readonly MODEL_TIERS = {
-    premium: 'anthropic/claude-sonnet-4.6',                       // Latest Claude 4.6 - highest quality
-    fast: 'google/gemini-2.5-flash',                             // Latest Gemini 2.5 - optimized speed
-    budget: 'mistralai/mistral-small-3.1-24b-instruct:free',  // Free Mistral 24B model
-    balanced: 'meta-llama/llama-3.3-70b-instruct',             // Good balance
+    premium: 'anthropic/claude-3.5-sonnet',                       // Highest quality for complex/high-budget
+    fast: 'google/gemini-2.0-flash-001',                         // High speed, low cost, large context
+    balanced: 'meta-llama/llama-3.3-70b-instruct',               // Good balance of speed/quality
+    budget: 'openai/gpt-4o-mini',                                // Very cheap, reliable
   };
 
   constructor(config: {
@@ -49,11 +56,11 @@ export class LLMClient {
     models?: string[];
   }) {
     this.openrouterApiKey = config.openrouterApiKey;
-    // Default fallback chain: fast → budget → balanced → premium
+    // Default fallback chain optimized for resilience
     this.models = config.models || [
       this.MODEL_TIERS.fast,
-      this.MODEL_TIERS.budget,
       this.MODEL_TIERS.balanced,
+      this.MODEL_TIERS.budget,
       this.MODEL_TIERS.premium,
     ];
   }
@@ -181,6 +188,15 @@ export class LLMClient {
         // Await tool calls
         const toolCallsResult = await result.toolCalls;
         const finishReason = await result.finishReason;
+        const usageData = await result.usage;
+        
+        const usage = usageData ? {
+          promptTokens: usageData.inputTokens ?? 0,
+          completionTokens: usageData.outputTokens ?? 0,
+          totalTokens: (usageData.inputTokens ?? 0) + (usageData.outputTokens ?? 0)
+        } : undefined;
+        
+        const cost = usage ? calculateLLMCost(modelId, usage.promptTokens, usage.completionTokens) : undefined;
         
         return {
           text: fullText,
@@ -189,6 +205,8 @@ export class LLMClient {
             args: tc.args,
           })),
           finishReason: finishReason || 'stop',
+          usage,
+          cost
         };
       }
       
@@ -201,6 +219,15 @@ export class LLMClient {
         abortSignal: timeoutController.signal,
       });
 
+      const usageData = result.usage;
+      const usage = usageData ? {
+        promptTokens: usageData.inputTokens ?? 0,
+        completionTokens: usageData.outputTokens ?? 0,
+        totalTokens: (usageData.inputTokens ?? 0) + (usageData.outputTokens ?? 0)
+      } : undefined;
+
+      const cost = usage ? calculateLLMCost(modelId, usage.promptTokens, usage.completionTokens) : undefined;
+
       return {
         text: result.text,
         toolCalls: result.toolCalls?.map((tc: any) => ({
@@ -208,37 +235,37 @@ export class LLMClient {
           args: tc.args,
         })) || [],
         finishReason: result.finishReason,
+        usage,
+        cost
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      const isRateLimit = errorMessage.includes('429') || errorMessage.includes('rate') || errorMessage.includes('Too many');
+      const isAbort = error instanceof Error && error.name === 'AbortError';
+
+      if (isAbort) {
+        logger.error(`Model ${modelId} aborted (timeout)`);
+        throw new Error(`Timeout on model ${modelId}`);
+      }
       
-      // Handle rate limiting (429 from OpenRouter)
-      if (errorMessage.includes('429') || errorMessage.includes('rate') || errorMessage.includes('Too many')) {
+      // ONLY retry on rate limits (429) within the same model
+      if (isRateLimit) {
         // Extract retry-after if available in error message
         const retryMatch = errorMessage.match(/(\d+)\s*(?:seconds?|ms)/);
         const suggestedWait = retryMatch ? parseInt(retryMatch[1]) * 1000 : 0;
-        const waitTime = suggestedWait || Math.pow(2, attempt - 1) * 5000; // 5s, 10s, 20s
+        const waitTime = suggestedWait || Math.pow(2, attempt - 1) * 2000; // Faster retries for hackathon: 2s, 4s, 8s
         const waitSeconds = Math.ceil(waitTime / 1000);
         
-        logger.warn(`OpenRouter rate limited on ${modelId}. Waiting ${waitSeconds}s before retry`, {
-          modelId,
-          attempt,
-          waitTime,
-        });
+        logger.warn(`OpenRouter rate limited on ${modelId}. Waiting ${waitSeconds}s before retry ${attempt}/${maxRetries}`);
         
         if (attempt < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, waitTime));
           return this.tryModel(modelId, options, attempt + 1, maxRetries);
         }
-        
-        // Max retries exceeded, throw with context
-        throw new Error(
-          `OpenRouter rate limit exceeded on ${modelId} after ${maxRetries} attempts. ` +
-          `Suggested wait: ${waitSeconds}s. Original error: ${errorMessage}`
-        );
       }
       
-      // For non-rate-limit errors, rethrow immediately
+      // For all other errors (500, network, empty response), throw so generate() can catch and switch models
+      logger.error(`Model ${modelId} execution failed: ${errorMessage}`);
       throw error;
     } finally {
       clearTimeout(timeoutId);

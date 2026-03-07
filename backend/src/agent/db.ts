@@ -197,7 +197,7 @@ export class Database {
         [limit]
       );
       
-      return result.rows.map(row => ({
+      return result.rows.map((row: any) => ({
         job_id: row.job_id,
         status: row.status,
         processed_at: Number(row.processed_at),

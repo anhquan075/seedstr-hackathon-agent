@@ -138,6 +138,83 @@ export default function JobDetailModal({
                 </div>
               )}
 
+              {/* Detailed Metrics Section */}
+              {(job.usage || job.cost) && (
+                <div className="pt-4 border-t border-slate-700">
+                  <h3 className="text-xs md:text-sm uppercase tracking-wider text-amber-400 mb-3 font-bold">
+                    Cost & Token Usage
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-900/30 p-4 rounded border border-amber-400/10">
+                    {job.usage && (
+                      <>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 font-bold">
+                            Prompt Tokens
+                          </p>
+                          <p className="text-xs md:text-sm text-slate-300 font-mono">
+                            {job.usage.promptTokens.toLocaleString()}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 font-bold">
+                            Completion Tokens
+                          </p>
+                          <p className="text-xs md:text-sm text-slate-300 font-mono">
+                            {job.usage.completionTokens.toLocaleString()}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 font-bold">
+                            Total Tokens
+                          </p>
+                          <p className="text-xs md:text-sm text-slate-300 font-mono">
+                            {job.usage.totalTokens.toLocaleString()}
+                          </p>
+                        </div>
+                      </>
+                    )}
+                    {job.cost && (
+                      <>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 font-bold">
+                            Input Cost
+                          </p>
+                          <p className="text-xs md:text-sm text-red-400/80 font-mono">
+                            ${job.cost.inputCost.toFixed(5)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 font-bold">
+                            Output Cost
+                          </p>
+                          <p className="text-xs md:text-sm text-red-400/80 font-mono">
+                            ${job.cost.outputCost.toFixed(5)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 font-bold">
+                            Total Cost
+                          </p>
+                          <p className="text-xs md:text-sm text-red-400 font-bold font-mono">
+                            ${job.cost.totalCost.toFixed(5)}
+                          </p>
+                        </div>
+                        {job.cost.profit !== undefined && (
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 font-bold">
+                              Net Profit
+                            </p>
+                            <p className="text-xs md:text-sm text-green-400 font-bold font-mono">
+                              ${job.cost.profit.toFixed(4)}
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Detailed Metadata Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-slate-700">
                 <div>

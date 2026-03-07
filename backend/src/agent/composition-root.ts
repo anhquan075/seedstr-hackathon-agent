@@ -141,6 +141,7 @@ apiClient.getMeV2()
       const budget = data.budget || 1;
       const skills = data.skills ?? [];
       const description = data.description ?? '';
+      
       // Always attempt to accept the job (STANDARD or SWARM) before starting generation
       // This acts as a remote lock in multi-instance environments
       await packer.acceptJob({
@@ -152,6 +153,21 @@ apiClient.getMeV2()
       });
 
       const brainOutput = await brain.generateFromPrompt(data.id, data.prompt, budget);
+      
+      // Emit job_metrics event for cost and profit tracking
+      if (brainOutput.usage && brainOutput.cost) {
+        eventBus.emit('job_metrics', {
+          id: data.id,
+          promptTokens: brainOutput.usage.promptTokens,
+          completionTokens: brainOutput.usage.completionTokens,
+          totalTokens: brainOutput.usage.totalTokens,
+          inputCost: brainOutput.cost.inputCost,
+          outputCost: brainOutput.cost.outputCost,
+          totalCost: brainOutput.cost.totalCost,
+          profit: budget - brainOutput.cost.totalCost,
+          timestamp: Date.now(),
+        });
+      }
       
       const responseType = brain.getResponseType({
         budget,
