@@ -7,3 +7,4 @@ export { httpRequestTool } from './http-request.js';
 export { generateQrCodeTool } from './qr-code.js';
 export { csvAnalysisTool } from './csv-analysis.js';
 export { textProcessingTool } from './text-processing.js';
+export { codeAnalysisTool } from './code-analysis.js';

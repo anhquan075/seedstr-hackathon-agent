@@ -4,6 +4,9 @@ import { LLMClient } from '../llm-client.js';
 import { logger } from '../logger.js';
 import { ProjectValidator } from './validator.js';
 import { getSystemPrompt, getFrontendGenerationPrompt } from '../prompts.js';
+import * as tools from '../tools/index.js';
+import { setActiveProjectBuilder } from '../tools/project-tools.js';
+import { ProjectBuilder } from '../project-builder.js';
 
 export class Brain {
   private llmClient: LLMClient;
@@ -30,6 +33,11 @@ export class Brain {
     const startTime = Date.now();
     let currentPrompt = getFrontendGenerationPrompt(prompt);
     let attempts = 0;
+    
+    // Initialize project builder for this job and link it to tools
+    const projectBuilder = new ProjectBuilder(jobId);
+    setActiveProjectBuilder(projectBuilder);
+
     const history: LLMMessage[] = [
       {
         role: 'system',
@@ -52,19 +60,37 @@ export class Brain {
         const generation = await this.llmClient.generate({
           messages: history,
           budget,
+          tools: tools as any,
+          maxSteps: 10,
         });
 
         const responseText = generation.text;
         history.push({ role: 'assistant', content: responseText });
 
-        const files = this.extractFiles(responseText);
-        const validation = this.validator.validate(files);
+        // Merge files from both patterns: regex extraction AND tool-based creation
+        const extractedFiles = this.extractFiles(responseText);
+        const toolCreatedFiles = projectBuilder.getFiles();
+        
+        // Convert ProjectBuilder files to BuildFile format
+        const formattedToolFiles: BuildFile[] = toolCreatedFiles.map(f => ({
+          path: f.path,
+          content: f.content,
+          type: this.mapLanguageToFileType(f.path.split('.').pop() || 'text')
+        }));
+
+        // Combine files (prefer tool-created files if paths collide)
+        const fileMap = new Map<string, BuildFile>();
+        extractedFiles.forEach(f => fileMap.set(f.path, f));
+        formattedToolFiles.forEach(f => fileMap.set(f.path, f));
+        
+        const allFiles = Array.from(fileMap.values());
+        const validation = this.validator.validate(allFiles);
 
         if (validation.isValid) {
           const generationTimeMs = Date.now() - startTime;
           return {
             rawResponse: responseText,
-            files,
+            files: allFiles,
             llmModel: 'openrouter-selected',
             tokensUsed: generation.usage?.totalTokens,
             generationTimeMs,

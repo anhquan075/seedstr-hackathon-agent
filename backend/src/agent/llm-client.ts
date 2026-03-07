@@ -1,5 +1,5 @@
 import { repairJSON } from './json-repair.js';
-import { generateText, streamText, type LanguageModelUsage } from 'ai';
+import { generateText, streamText, type LanguageModelUsage, stepCountIs } from 'ai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { logger } from './logger.js';
 import { calculateLLMCost } from './utils/cost-calculator.js';
@@ -172,6 +172,7 @@ export class LLMClient {
           model: openrouter(modelId),
           messages: options.messages,
           tools: options.tools,
+          stopWhen: stepCountIs(options.maxSteps || 10),
           temperature: options.temperature || 0.7,
           abortSignal: timeoutController.signal,
         });
@@ -215,6 +216,7 @@ export class LLMClient {
         model: openrouter(modelId),
         messages: options.messages,
         tools: options.tools,
+        stopWhen: stepCountIs(options.maxSteps || 10),
         temperature: options.temperature || 0.7,
         abortSignal: timeoutController.signal,
       });
