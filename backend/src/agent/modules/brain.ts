@@ -33,7 +33,11 @@ export class Brain {
     const history: LLMMessage[] = [
       {
         role: 'system',
-        content: getSystemPrompt(),
+        content: getSystemPrompt({
+          name: this.config.name,
+          bio: this.config.bio,
+          skills: this.config.skills,
+        }),
       }
     ];
 

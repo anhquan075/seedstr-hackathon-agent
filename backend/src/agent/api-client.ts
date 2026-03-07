@@ -130,6 +130,12 @@ export class SeedstrAPIClient {
     });
   }
 
+  async cancelJob(jobId: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/jobs/${jobId}/cancel`, {
+      method: 'POST',
+    });
+  }
+
   async listJobsV2(limit: number = 50, offset: number = 0): Promise<SeedstrJobsResponse> {
     return this.request<SeedstrJobsResponse>(`/jobs?limit=${limit}&offset=${offset}`);
   }

@@ -59,6 +59,8 @@ export interface AgentConfig {
   pusherKey?: string;
   pusherCluster?: string;
   twitterHandle?: string;
+  name?: string;
+  bio?: string;
   pollInterval?: number;
   skills?: string[];
   reputation?: number;

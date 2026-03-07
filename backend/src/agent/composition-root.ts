@@ -82,9 +82,16 @@ let agentCapabilities = {
 const apiClient = new SeedstrAPIClient(config.seedstrApiKey || config.apiKey);
 apiClient.getMeV2()
   .then((agentData) => {
-    if (agentData && typeof agentData.reputation === 'number') {
-      agentCapabilities.agentReputation = agentData.reputation;
-      logger.info(`[CompositionRoot] Updated agent reputation to ${agentData.reputation}`);
+    if (agentData) {
+      // Personalize config for agent fine-tuning
+      if (agentData.name) config.name = agentData.name;
+      if (agentData.bio) config.bio = agentData.bio;
+      if (agentData.skills) config.skills = agentData.skills;
+      
+      if (typeof agentData.reputation === 'number') {
+        agentCapabilities.agentReputation = agentData.reputation;
+        logger.info(`[CompositionRoot] Updated agent identity: ${agentData.name} (${agentData.reputation} rep)`);
+      }
     }
     if (agentData && agentData.verification && agentData.verification.isVerified === false) {
       logger.error('************************************************');

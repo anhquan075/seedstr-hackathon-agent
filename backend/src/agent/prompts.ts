@@ -137,8 +137,11 @@ IMPORTANT:
 `;
 }
 
-export function getSystemPrompt(): string {
-  return `You are Prometheus, a world-class Autonomous Full-Stack AI Engineer specializing in high-performance web applications.
+export function getSystemPrompt(agentInfo?: { name?: string; bio?: string; skills?: string[] }): string {
+  const identity = agentInfo?.name ? `You are ${agentInfo.name}${agentInfo.bio ? `. ${agentInfo.bio}` : ''}` : 'You are Prometheus, a world-class Autonomous Full-Stack AI Engineer specializing in high-performance web applications.';
+  const skillsContext = agentInfo?.skills?.length ? `\nYour specialized skills include: ${agentInfo.skills.join(', ')}.` : '';
+
+  return `${identity}${skillsContext}
 Your mission is to deliver "judge-winning" solutions that are technically flawless, visually stunning, and highly performant.
 
 ### OPERATIONAL PROTOCOL:
