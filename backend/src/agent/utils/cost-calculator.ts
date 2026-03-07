@@ -18,7 +18,6 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
 
   // xAI (Grok)
   'x-ai/grok-4.1-fast': { input: 0.2, output: 0.5 },
-  'x-ai/grok-beta': { input: 2.0, output: 10.0 },
   
   // Meta Llama (via OpenRouter/Groq/DeepInfra)
   'meta-llama/llama-3.3-70b-instruct': { input: 0.6, output: 0.6 },
