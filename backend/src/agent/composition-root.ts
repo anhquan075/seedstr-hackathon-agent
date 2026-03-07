@@ -175,14 +175,15 @@ apiClient.getMeV2()
      timestamp: Date.now(),
     });
    }
-   
-   const responseType = brain.getResponseType({
-    budget,
-    description,
-    prompt: data.prompt,
+
+   const responseType = data.responseType ?? brain.getResponseType({
+     budget,
+     description,
+     prompt: data.prompt,
    });
 
    // Emit job_generated to match template workflow
+
    eventBus.emit('job_generated', {
     id: data.id,
     output: brainOutput,

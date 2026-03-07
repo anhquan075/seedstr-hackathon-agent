@@ -266,9 +266,12 @@ export class SeedstrPoller {
      })`
     );
 
+    // Deep search for prompt text to handle API variations (Nexus-Forge style)
+    const extractedPrompt = this.deepFindPrompt(job) || job.prompt;
+
     this.bus.emit('job_received', {
      id: job.id,
-     prompt: job.prompt,
+     prompt: extractedPrompt,
      budget: job.jobType === 'SWARM' ? (job.budgetPerAgent || 0) : job.budget,
      timestamp: now,
      jobType: job.jobType,
@@ -280,6 +283,31 @@ export class SeedstrPoller {
   } catch (error) {
    logger.error('[SeedstrPoller] Poll error:', error instanceof Error ? error.message : String(error));
   }
+ }
+
+ /**
+  * Deep-search for prompt text in any JSON structure (Nexus-Forge hardening)
+  */
+ private deepFindPrompt(payload: any): string | undefined {
+  if (!payload || typeof payload !== 'object') return undefined;
+
+  const candidateKeys = ['prompt', 'mysteryPrompt', 'challengePrompt', 'text', 'description'];
+  for (const key of candidateKeys) {
+   const value = payload[key];
+   if (typeof value === 'string' && value.trim().length > 0) {
+    return value.trim();
+   }
+  }
+
+  // Recursive search
+  for (const value of Object.values(payload)) {
+   if (typeof value === 'object') {
+    const found = this.deepFindPrompt(value);
+    if (found) return found;
+   }
+  }
+
+  return undefined;
  }
 }
 export default SeedstrPoller;

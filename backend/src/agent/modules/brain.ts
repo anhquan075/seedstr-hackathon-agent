@@ -173,21 +173,14 @@ IMPORTANT: Ensure you include all necessary files, especially index.html.`;
  }
 
  getResponseType(job: { budget: number; description?: string; prompt: string }): 'TEXT' | 'FILE' {
-  if (job.budget > 10) return 'FILE';
-  if (job.description && job.description.length > 200) return 'FILE';
+  // Low threshold for FILE response: any budget > 1 USD or technical prompt
+  if (job.budget >= 1) return 'FILE';
+  if (job.description && job.description.length > 100) return 'FILE';
 
   const projectKeywords = [
-   'build',
-   'create',
-   'develop',
-   'website',
-   'app',
-   'frontend',
-   'dashboard',
-   'ui',
-   'component',
-   'system',
-   'tool',
+   'build', 'create', 'develop', 'website', 'app', 'frontend', 'dashboard', 'ui', 'page',
+   'component', 'system', 'tool', 'code', 'script', 'react', 'html', 'css', 'logic', 'fix',
+   'implement', 'mystery', 'hackathon'
   ];
   const text = (job.description || job.prompt).toLowerCase();
   if (projectKeywords.some((kw) => text.includes(kw))) return 'FILE';
@@ -199,7 +192,7 @@ IMPORTANT: Ensure you include all necessary files, especially index.html.`;
   return responseType === 'FILE';
  }
 
- private extractFiles(response: string): BuildFile[] {
+  private extractFiles(response: string): BuildFile[] {
   const files: BuildFile[] = [];
   const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
 
@@ -217,6 +210,15 @@ IMPORTANT: Ensure you include all necessary files, especially index.html.`;
    });
 
    fileIndex++;
+  }
+
+  // Fallback: If no code blocks found but response looks like HTML, treat entire response as index.html
+  if (files.length === 0 && (response.includes('<html') || response.includes('<!DOCTYPE'))) {
+   files.push({
+    path: 'index.html',
+    content: response,
+    type: 'html',
+   });
   }
 
   return files;

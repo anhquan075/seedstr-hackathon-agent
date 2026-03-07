@@ -89,7 +89,7 @@ export class SeedstrAPIClient {
 
     if (attempt < maxRetries) {
      await this.sleep(waitTime);
-     return this.request<T>(endpoint, options, attempt + 1, maxRetries);
+     return this.request<T>(endpoint, options, v2, attempt + 1, maxRetries);
     }
     
     // Max retries exceeded
