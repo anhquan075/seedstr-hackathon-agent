@@ -68,3 +68,63 @@
 .text-fire-bright {
   color: #ffcc00;
 }
+
+/* --- Advanced Cyberpunk UI Enhancements --- */
+
+.crt-screen {
+  position: relative;
+  overflow: hidden;
+}
+
+.crt-screen::before {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+  z-index: 2;
+  background-size: 100% 2px, 3px 100%;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.scanline {
+  width: 100%;
+  height: 100px;
+  z-index: 3;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(255, 153, 0, 0.05) 50%, rgba(0, 0, 0, 0) 100%);
+  opacity: 0.1;
+  position: absolute;
+  bottom: 100%;
+  animation: scanline 8s linear infinite;
+  pointer-events: none;
+}
+
+.terminal-glitch {
+  animation: flicker 0.15s infinite;
+}
+
+.pixel-grid {
+  background-image: radial-gradient(rgba(255, 153, 0, 0.1) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+@keyframes scanline {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(100vh); }
+}
+
+@keyframes flicker {
+  0% { opacity: 0.9; }
+  100% { opacity: 1; }
+}
+
+.neon-glow-fire {
+  text-shadow: 0 0 5px #ff9900, 0 0 10px rgba(255, 153, 0, 0.5);
+}
+
+.cyber-border {
+  clip-path: polygon(
+    0% 0%, 100% 0%, 100% 70%, 95% 100%, 0% 100%
+  );
+}

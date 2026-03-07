@@ -243,74 +243,67 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-mono p-4 md:p-8 overflow-hidden relative">
-      {/* Background Effects */}
-      <div className="scanlines absolute inset-0 pointer-events-none z-50 opacity-10"></div>
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent opacity-50"></div>
-
-      {/* Header */}
-      <header className="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-blue-400/30 pb-4 relative">
+    <div className="min-h-screen bg-[#0a0a0c] text-slate-300 p-4 md:p-8 font-mono selection:bg-orange-500/30 crt-screen pixel-grid relative overflow-hidden">
+      <div className="scanline"></div>
+      
+      {/* Cinematic Header */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 relative z-10">
         <div className="flex items-center gap-4">
-          <div className="relative">
-            <Cpu className="w-10 h-10 text-blue-400 animate-pulse" />
-            <div className="absolute inset-0 bg-blue-400 blur-lg opacity-40"></div>
+          <div className="w-12 h-12 bg-orange-600/20 border border-orange-500/50 rounded flex items-center justify-center box-glow-fire relative group overflow-hidden cyber-border">
+            <Cpu className="w-7 h-7 text-orange-500 animate-pulse relative z-10" />
+            <div className="absolute inset-0 bg-orange-500/10 group-hover:bg-orange-500/20 transition-colors"></div>
           </div>
           <div>
-            <h1
-              className="text-3xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 uppercase"
-              style={{ fontFamily: "var(--font-orbitron)" }}
-            >
-              🔥 Prometheus Control Center
+            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tighter uppercase italic flex items-center gap-2 neon-glow-fire">
+              Prometheus <span className="text-orange-500">Core</span>
             </h1>
-            <p className="text-xs text-blue-400/70 tracking-widest uppercase">
-              Autonomous Job Execution & Monitoring Hub
-            </p>
+            <div className="flex items-center gap-2 text-[10px] text-orange-500/70 font-bold uppercase tracking-[0.2em]">
+              <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping"></span>
+              Neural Network Active // v2.5.0
+            </div>
           </div>
         </div>
 
-        <div className="flex gap-4 mt-4 md:mt-0">
-          <StatusBadge
-            label="NET"
-            status={connectionStatus === "connected" ? "active" : "error"}
-            icon={Wifi}
-          />
-          <StatusBadge
-            label="SYS"
-            status={health.status === "ok" ? "active" : "error"}
-            icon={Activity}
-          />
-          <StatusBadge
-            label="AI"
-            status={health.status === "ok" ? "active" : "warn"}
-            icon={Zap}
-          />
+        <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
+          <div className="flex items-center gap-2 bg-slate-900/80 border border-slate-700 px-3 py-1.5 rounded cyber-border">
+            <Wifi className={`w-3 h-3 ${connectionStatus === "connected" ? "text-green-400" : "text-red-400"}`} />
+            <span className="text-[10px] font-bold uppercase tracking-widest">NET: {connectionStatus}</span>
+          </div>
+          <div className="flex items-center gap-2 bg-slate-900/80 border border-slate-700 px-3 py-1.5 rounded cyber-border">
+            <Activity className={`w-3 h-3 ${health.status === "ok" ? "text-green-400" : "text-yellow-400"}`} />
+            <span className="text-[10px] font-bold uppercase tracking-widest">SYS: {health.status}</span>
+          </div>
+          <div className="flex items-center gap-2 bg-slate-900/80 border border-slate-700 px-3 py-1.5 rounded cyber-border">
+            <Zap className="w-3 h-3 text-orange-400" />
+            <span className="text-[10px] font-bold uppercase tracking-widest">AI: ONLINE</span>
+          </div>
         </div>
 
         {/* Operator Console */}
         <div className="flex gap-2 mt-4 md:mt-0">
           <button
             onClick={abortCurrentJob}
-            className="px-3 py-1.5 bg-red-500/20 border border-red-500/50 rounded text-red-400 text-xs uppercase tracking-wider hover:bg-red-500/30 transition-colors flex items-center gap-2"
+            className="px-3 py-1.5 bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all hover:border-red-500/60 cyber-border flex items-center gap-2 group"
           >
-            <StopCircle className="w-3 h-3" /> Abort
+            <StopCircle className="w-3 h-3 group-hover:scale-110 transition-transform" /> ABORT_OP
           </button>
           <button
             onClick={retryLastJob}
-            className="px-3 py-1.5 bg-purple-500/20 border border-purple-500/50 rounded text-purple-500 text-xs uppercase tracking-wider hover:bg-purple-500/30 transition-colors flex items-center gap-2"
+            className="px-3 py-1.5 bg-orange-500/10 border border-orange-500/30 text-orange-400 text-[10px] font-bold uppercase tracking-widest hover:bg-orange-500/20 transition-all hover:border-orange-500/60 cyber-border flex items-center gap-2 group"
           >
-            <RotateCcw className="w-3 h-3" /> Retry
+            <RotateCcw className="w-3 h-3 group-hover:rotate-180 transition-transform duration-500" /> REPLAY_GEN
           </button>
           <button
             onClick={exportRun}
-            className="px-3 py-1.5 bg-green-400/20 border border-green-400/50 rounded text-green-400 text-xs uppercase tracking-wider hover:bg-green-400/30 transition-colors flex items-center gap-2"
+            className="px-3 py-1.5 bg-green-500/10 border border-green-500/30 text-green-400 text-[10px] font-bold uppercase tracking-widest hover:bg-green-500/20 transition-all hover:border-green-500/60 cyber-border flex items-center gap-2 group"
           >
-            <Download className="w-3 h-3" /> Export
+            <Download className="w-3 h-3 group-hover:translate-y-0.5 transition-transform" /> EXPORT_DATA
           </button>
         </div>
       </header>
 
       {/* Production Metrics */}
-      <section className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
+      <section className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6 relative z-10">
         <MetricCard
           label="Uptime"
           metricKey="uptime"
@@ -357,13 +350,13 @@ export default function Dashboard() {
       </section>
 
       {/* Operations Layout */}
-      <main className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-900px)] min-h-[500px]">
+      <main className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-900px)] min-h-[500px] relative z-10">
         {/* Left Column: Job Queue */}
         <div className="lg:col-span-2 flex flex-col gap-6 h-full overflow-hidden">
           {/* Active Jobs */}
-          <section className="flex-1 bg-slate-900/50 border border-blue-400/20 rounded-lg p-4 relative overflow-hidden backdrop-blur-sm box-glow-cyan">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-blue-400">
-              <Loader className="w-5 h-5 animate-spin" /> ACTIVE OPERATIONS
+          <section className="flex-1 bg-slate-900/40 border border-orange-500/20 rounded p-4 relative overflow-hidden backdrop-blur-md box-glow-fire cyber-border">
+            <h2 className="text-sm font-black mb-4 flex items-center gap-2 text-orange-500 uppercase tracking-[0.3em]">
+              <Loader className="w-4 h-4 animate-spin" /> &gt;&gt; ACTIVE_OPERATIONS
             </h2>
             <div className="h-[calc(100%-3rem)] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
               <AnimatePresence>
@@ -371,8 +364,8 @@ export default function Dashboard() {
                   (j: Job) =>
                     j.status === "processing" || j.status === "received",
                 ).length === 0 && (
-                  <div className="text-center text-gray-500 py-10 italic">
-                    No active operations. Waiting for command...
+                  <div className="text-center text-slate-600 py-10 italic text-xs uppercase tracking-widest">
+                    No active operations. Standby mode...
                   </div>
                 )}
                 {jobs
@@ -393,9 +386,9 @@ export default function Dashboard() {
           </section>
 
           {/* Completed Jobs */}
-          <section className="flex-1 bg-slate-800/30 border border-purple-500/20 rounded-lg p-4 relative overflow-hidden backdrop-blur-sm box-glow-magenta">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-purple-500">
-              <CheckCircle className="w-5 h-5" /> RECENTLY COMPLETED
+          <section className="flex-1 bg-slate-900/20 border border-slate-800 rounded p-4 relative overflow-hidden backdrop-blur-sm cyber-border">
+            <h2 className="text-sm font-black mb-4 flex items-center gap-2 text-slate-500 uppercase tracking-[0.3em]">
+              <CheckCircle className="w-4 h-4" /> &gt;&gt; RECENTLY_COMPLETED
             </h2>
             <div className="h-[calc(100%-3rem)] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
               {jobs
@@ -413,7 +406,7 @@ export default function Dashboard() {
               {jobs.filter(
                 (j: Job) => j.status === "completed" || j.status === "failed",
               ).length === 0 && (
-                <div className="text-center text-gray-500 py-10 italic">
+                <div className="text-center text-slate-700 py-10 italic text-xs uppercase tracking-widest">
                   System idle. No recent history.
                 </div>
               )}
@@ -422,15 +415,15 @@ export default function Dashboard() {
         </div>
 
         {/* Right Column: Terminal Logs */}
-        <div className="bg-slate-950 border border-green-400/30 rounded-lg p-4 font-fira-code text-sm relative overflow-hidden flex flex-col h-full box-glow-green">
-          <div className="absolute top-0 left-0 right-0 h-6 bg-green-400/10 flex items-center px-2 gap-2 border-b border-green-400/20">
-            <Terminal className="w-3 h-3 text-green-400" />
-            <span className="text-xs text-green-400 uppercase tracking-wider">
-              System Terminal
+        <div className="bg-[#050505] border border-orange-500/30 rounded p-4 font-mono text-xs relative overflow-hidden flex flex-col h-full box-glow-fire-intense cyber-border">
+          <div className="absolute top-0 left-0 right-0 h-6 bg-orange-500/10 flex items-center px-2 gap-2 border-b border-orange-500/20">
+            <Terminal className="w-3 h-3 text-orange-500" />
+            <span className="text-[10px] text-orange-500 uppercase font-black tracking-widest">
+              PROM_KERN_LOG
             </span>
           </div>
           <div
-            className="mt-6 flex-1 overflow-y-auto space-y-1 p-2 custom-scrollbar"
+            className="mt-6 flex-1 overflow-y-auto space-y-1 p-2 custom-scrollbar terminal-glitch"
             ref={scrollRef}
           >
             {logs.map((log: (typeof logs)[0]) => (
@@ -438,18 +431,18 @@ export default function Dashboard() {
                 key={log.id}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                className={`flex gap-2 ${log.level === "error" ? "text-red-500" : log.level === "warn" ? "text-yellow-500" : "text-green-400"}`}
+                className={`flex gap-2 font-mono ${log.level === "error" ? "text-red-500" : log.level === "warn" ? "text-yellow-500" : "text-orange-400"}`}
               >
-                <span className="opacity-50" suppressHydrationWarning>
+                <span className="opacity-30 shrink-0">
                   [{new Date(log.timestamp).toLocaleTimeString()}]
                 </span>
-                <span className="uppercase font-bold text-xs w-12">
+                <span className="uppercase font-bold shrink-0 w-10">
                   {log.level}
                 </span>
-                <span>{log.message}</span>
+                <span className="break-all">{log.message}</span>
               </motion.div>
             ))}
-            <div className="animate-pulse text-green-400">_</div>
+            <div className="animate-pulse text-orange-500">_</div>
           </div>
         </div>
       </main>

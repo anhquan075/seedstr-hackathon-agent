@@ -15,6 +15,10 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
   'openai/gpt-4o': { input: 5.0, output: 15.0 },
   'openai/gpt-4o-mini': { input: 0.15, output: 0.6 },
   'openai/gpt-4-turbo': { input: 10.0, output: 30.0 },
+
+  // xAI (Grok)
+  'x-ai/grok-2-1212': { input: 2.0, output: 10.0 },
+  'x-ai/grok-beta': { input: 5.0, output: 15.0 },
   
   // Meta Llama (via OpenRouter/Groq/DeepInfra)
   'meta-llama/llama-3.3-70b-instruct': { input: 0.6, output: 0.6 },

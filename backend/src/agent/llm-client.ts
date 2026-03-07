@@ -47,6 +47,7 @@ export class LLMClient {
   private readonly MODEL_TIERS = {
     premium: 'anthropic/claude-3.5-sonnet',                       // Highest quality for complex/high-budget
     fast: 'google/gemini-2.0-flash-001',                         // High speed, low cost, large context
+    grok: 'x-ai/grok-2-1212',                                    // High reasoning + speed via OpenRouter
     balanced: 'meta-llama/llama-3.3-70b-instruct',               // Good balance of speed/quality
     budget: 'openai/gpt-4o-mini',                                // Very cheap, reliable
   };
@@ -56,11 +57,11 @@ export class LLMClient {
     models?: string[];
   }) {
     this.openrouterApiKey = config.openrouterApiKey;
-    // Default fallback chain optimized for resilience
+    // Default fallback chain optimized for resilience (Prioritizing Grok/Gemini for speed)
     this.models = config.models || [
       this.MODEL_TIERS.fast,
+      this.MODEL_TIERS.grok,
       this.MODEL_TIERS.balanced,
-      this.MODEL_TIERS.budget,
       this.MODEL_TIERS.premium,
     ];
   }

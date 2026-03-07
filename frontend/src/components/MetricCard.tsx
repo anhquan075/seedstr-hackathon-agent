@@ -27,34 +27,33 @@ export function MetricCard({
   const isMetricLoading = metricKey ? isLoading : false;
 
   const colors = {
-    cyan: "from-blue-400 to-blue-400/50 border-blue-400/30",
-    magenta: "from-purple-500 to-purple-500/50 border-purple-500/30",
-    green: "from-green-400 to-green-400/50 border-green-400/30",
-    red: "from-red-500 to-red-500/50 border-red-500/30",
+    cyan: "border-cyan-500/30 text-cyan-400",
+    magenta: "border-magenta-500/30 text-magenta-400",
+    green: "border-green-500/30 text-green-400",
+    red: "border-red-500/30 text-red-400",
   };
 
   return (
     <div
-      className={`bg-gradient-to-br ${colors[color]} border rounded-lg p-4 relative overflow-hidden group hover:scale-105 transition-transform`}
+      className={`bg-slate-900/40 border ${colors[color].split(' ')[0]} rounded cyber-border p-4 relative overflow-hidden group transition-all box-glow-fire hover:bg-slate-900/60`}
     >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs uppercase tracking-wider opacity-70">
+      <div className="flex items-center justify-between mb-2 relative z-10">
+        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 group-hover:text-slate-400 transition-colors">
           {label}
         </span>
         {isMetricLoading ? (
-          <Loader className="w-4 h-4 opacity-50 animate-spin" />
+          <Loader className="w-3.5 h-3.5 opacity-50 animate-spin text-orange-500" />
         ) : (
-          <Icon className="w-4 h-4 opacity-50" />
+          <Icon className={`w-3.5 h-3.5 opacity-50 ${colors[color].split(' ')[1]}`} />
         )}
       </div>
       <div
-        className="text-2xl font-bold"
-        style={{ fontFamily: "var(--font-orbitron)" }}
+        className={`text-xl font-black tracking-tighter relative z-10 ${colors[color].split(' ')[1]}`}
         suppressHydrationWarning={suppressHydrationWarning}
       >
         {displayValue}
       </div>
-      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+      <div className="absolute bottom-0 right-0 w-8 h-8 bg-gradient-to-tl from-white/5 to-transparent pointer-events-none"></div>
     </div>
   );
 }
