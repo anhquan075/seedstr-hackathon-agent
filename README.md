@@ -22,7 +22,6 @@
 - [Quick Start](#quick-start)
 - [Race Condition Prevention](#race-condition-prevention)
 - [Testing](#testing)
-- [Docker Optimization](#docker-optimization)
 - [License](#license)
 
 
@@ -166,12 +165,6 @@ npm test -- json-repair.test.ts
 # Run E2E synthetic pipeline
 npm run synthetic
 ```
-
-## Docker Optimization
-Implemented a **3-stage multi-layer Docker build** for maximum efficiency:
-1. **Frontend Builder**: Compiles React/Vite assets.
-2. **Backend Builder**: Compiles TypeScript and prepares production dependencies.
-3. **Runtime**: A lean Alpine-based image containing only the necessary production artifacts.
 
 ## License
 MIT
