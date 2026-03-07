@@ -7,7 +7,7 @@ import type {
 } from './types.js';
 import { logger } from './logger.js';
 
-const BASE_URL = 'https://www.seedstr.io/api/v2';
+const BASE_URL = 'https://www.seedstr.io/api';
 
 export class SeedstrAPIClient {
  private apiKey: string;
@@ -48,10 +48,14 @@ export class SeedstrAPIClient {
  private async request<T>(
   endpoint: string,
   options: RequestInit = {},
+  v2: boolean = true,
   attempt: number = 1,
   maxRetries: number = 3
  ): Promise<T> {
-  const url = `${BASE_URL}${endpoint}`;
+  const version = v2 ? '/v2' : '/v1';
+  // If endpoint already starts with /v1 or /v2, don't double prefix
+  const finalEndpoint = endpoint.startsWith('/v') ? endpoint : `${version}${endpoint}`;
+  const url = `${BASE_URL}${finalEndpoint}`;
 
   // Check if we're rate limited and still within the backoff window
   if (this.rateLimitReset > Date.now()) {
@@ -110,50 +114,50 @@ export class SeedstrAPIClient {
  }
 
  async getJobs(limit: number = 50): Promise<SeedstrJobsResponse> {
-  return this.request<SeedstrJobsResponse>(`/jobs?limit=${limit}`);
+  return this.request<SeedstrJobsResponse>(`/jobs?limit=${limit}`, {}, true);
  }
 
  async getJob(jobId: string): Promise<SeedstrJob> {
-  return this.request<SeedstrJob>(`/jobs/${jobId}`);
+  return this.request<SeedstrJob>(`/jobs/${jobId}`, {}, true);
  }
 
  async acceptJob(jobId: string): Promise<{ success: boolean; acceptance: any }> {
   return this.request<{ success: boolean; acceptance: any }>(`/jobs/${jobId}/accept`, {
    method: 'POST',
-  });
+  }, true);
  }
 
  async declineJob(jobId: string, reason?: string): Promise<{ success: boolean }> {
   return this.request<{ success: boolean }>(`/jobs/${jobId}/decline`, {
    method: 'POST',
    body: JSON.stringify({ reason }),
-  });
+  }, true);
  }
 
  async cancelJob(jobId: string): Promise<{ success: boolean }> {
   return this.request<{ success: boolean }>(`/jobs/${jobId}/cancel`, {
    method: 'POST',
-  });
+  }, true);
  }
 
  async listJobsV2(limit: number = 50, offset: number = 0): Promise<SeedstrJobsResponse> {
-  return this.request<SeedstrJobsResponse>(`/jobs?limit=${limit}&offset=${offset}`);
+  return this.request<SeedstrJobsResponse>(`/jobs?limit=${limit}&offset=${offset}`, {}, true);
  }
 
  async getJobV2(jobId: string): Promise<SeedstrJob> {
-  return this.request<SeedstrJob>(`/jobs/${jobId}`);
+  return this.request<SeedstrJob>(`/jobs/${jobId}`, {}, true);
  }
 
  async getMeV2(): Promise<any> {
-  return this.request<any>('/me');
+  return this.request<any>('/me', {}, true);
  }
 
  async getMe(): Promise<any> {
-  return this.request<any>('/me');
+  return this.request<any>('/me', {}, true);
  }
 
- async getSkills(): Promise<string[]> {
-  return this.request<string[]>('/skills');
+ async getSkills(): Promise<any> {
+  return this.request<any>('/skills', {}, true);
  }
 
  async uploadFiles(
@@ -162,7 +166,7 @@ export class SeedstrAPIClient {
   return this.request<SeedstrUploadResponse>('/upload', {
    method: 'POST',
    body: JSON.stringify({ files }),
-  });
+  }, true);
  }
 
  async submitResponse(
@@ -177,7 +181,7 @@ export class SeedstrAPIClient {
     responseType: files.length > 0 ? 'FILE' : 'TEXT',
     files,
    }),
-  });
+  }, true);
  }
 
  async register(
@@ -190,7 +194,7 @@ export class SeedstrAPIClient {
     walletAddress,
     walletType,
    }),
-  });
+  }, false);
  }
 
  async verifyTwitter(twitterHandle: string): Promise<{ success: boolean }> {
@@ -199,7 +203,7 @@ export class SeedstrAPIClient {
    body: JSON.stringify({
     twitterHandle,
    }),
-  });
+  }, false);
  }
 
  async updateProfile(updates: {
@@ -209,6 +213,6 @@ export class SeedstrAPIClient {
   return this.request('/me', {
    method: 'PATCH',
    body: JSON.stringify(updates),
-  });
+  }, true);
  }
 }

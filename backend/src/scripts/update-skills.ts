@@ -37,6 +37,9 @@ async function updateSkills() {
  allSkills.forEach((skill, i) => console.log(` ${i + 1}. ${skill}`));
 
  try {
+  const availableSkills = await client.getSkills();
+  console.log('\nAvailable Skills on platform:', JSON.stringify(availableSkills, null, 2));
+
   const result = await client.updateProfile({ skills: allSkills });
   console.log('\n Skills updated successfully!');
   console.log(JSON.stringify(result, null, 2));
