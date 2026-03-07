@@ -15,98 +15,98 @@ import { logger } from '../logger.js';
  * - Emit 'builder_completed' event with BrainOutput for next stage (Packer)
  */
 export class Builder {
-  constructor(
-    private bus: EventBus,
-    private config: AgentConfig
-  ) {}
+ constructor(
+  private bus: EventBus,
+  private config: AgentConfig
+ ) {}
 
-  /**
-   * Build project from BrainOutput
-   * Creates directory structure and writes all files
-   */
-  async buildFromOutput(jobId: string, brainOutput: BrainOutput): Promise<void> {
-    const buildDir = path.join(process.cwd(), '.build', jobId);
+ /**
+  * Build project from BrainOutput
+  * Creates directory structure and writes all files
+  */
+ async buildFromOutput(jobId: string, brainOutput: BrainOutput): Promise<void> {
+  const buildDir = path.join(process.cwd(), '.build', jobId);
 
-    try {
-      logger.info(`[Builder] Starting build for job ${jobId}...`);
+  try {
+   logger.info(`[Builder] Starting build for job ${jobId}...`);
 
-      // Create build directory
-      fs.mkdirSync(buildDir, { recursive: true });
+   // Create build directory
+   fs.mkdirSync(buildDir, { recursive: true });
 
-      // Write all extracted files
-      for (const file of brainOutput.files) {
-        const filePath = path.join(buildDir, file.path);
-        const fileDir = path.dirname(filePath);
+   // Write all extracted files
+   for (const file of brainOutput.files) {
+    const filePath = path.join(buildDir, file.path);
+    const fileDir = path.dirname(filePath);
 
-        // Ensure directory exists
-        fs.mkdirSync(fileDir, { recursive: true });
+    // Ensure directory exists
+    fs.mkdirSync(fileDir, { recursive: true });
 
-        // Write file
-        fs.writeFileSync(filePath, file.content, 'utf-8');
-        logger.info(`[Builder] Written: ${file.path}`);
-      }
+    // Write file
+    fs.writeFileSync(filePath, file.content, 'utf-8');
+    logger.info(`[Builder] Written: ${file.path}`);
+   }
 
-      // Verify files were created
-      const filesWritten = this.verifyFiles(buildDir, brainOutput.files);
-      if (filesWritten !== brainOutput.files.length) {
-        throw new Error(
-          `File verification failed: expected ${brainOutput.files.length}, got ${filesWritten}`
-        );
-      }
+   // Verify files were created
+   const filesWritten = this.verifyFiles(buildDir, brainOutput.files);
+   if (filesWritten !== brainOutput.files.length) {
+    throw new Error(
+     `File verification failed: expected ${brainOutput.files.length}, got ${filesWritten}`
+    );
+   }
 
-      logger.info(`[Builder] Build complete: ${brainOutput.files.length} files written to ${buildDir}`);
+   logger.info(`[Builder] Build complete: ${brainOutput.files.length} files written to ${buildDir}`);
 
-      // Emit completion
-      this.bus.emit('job_processing', {
-        id: jobId,
-        stage: 'packing',
-        timestamp: Date.now(),
-      });
+   // Emit completion
+   this.bus.emit('job_processing', {
+    id: jobId,
+    stage: 'packing',
+    timestamp: Date.now(),
+   });
 
-    } catch (error) {
-      logger.info(`[Builder] Build failed for job ${jobId}:`, error);
+  } catch (error) {
+   logger.info(`[Builder] Build failed for job ${jobId}:`, error);
 
-      // Cleanup on failure
-      try {
-        fs.rmSync(buildDir, { recursive: true, force: true });
-      } catch (e) {
-        // Ignore cleanup errors
-      }
+   // Cleanup on failure
+   try {
+    fs.rmSync(buildDir, { recursive: true, force: true });
+   } catch (e) {
+    // Ignore cleanup errors
+   }
 
-      this.bus.emit('job_failed', {
-        id: jobId,
-        error: `Builder failed: ${error instanceof Error ? error.message : String(error)}`,
-        stage: 'building',
-        timestamp: Date.now(),
-      });
+   this.bus.emit('job_failed', {
+    id: jobId,
+    error: `Builder failed: ${error instanceof Error ? error.message : String(error)}`,
+    stage: 'building',
+    timestamp: Date.now(),
+   });
+  }
+ }
+
+ /**
+  * Verify all files were written correctly
+  */
+ private verifyFiles(buildDir: string, expectedFiles: BuildFile[]): number {
+  let count = 0;
+
+  for (const file of expectedFiles) {
+   const filePath = path.join(buildDir, file.path);
+   if (fs.existsSync(filePath)) {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    if (content === file.content) {
+     count++;
     }
+   }
   }
 
-  /**
-   * Verify all files were written correctly
-   */
-  private verifyFiles(buildDir: string, expectedFiles: BuildFile[]): number {
-    let count = 0;
+  return count;
+ }
 
-    for (const file of expectedFiles) {
-      const filePath = path.join(buildDir, file.path);
-      if (fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath, 'utf-8');
-        if (content === file.content) {
-          count++;
-        }
-      }
-    }
-
-    return count;
-  }
-
-  /**
-   * Get build directory path for a job
-   */
-  getBuildDir(jobId: string): string {
-    return path.join(process.cwd(), '.build', jobId);
-  }
+ /**
+  * Get build directory path for a job
+  */
+ getBuildDir(jobId: string): string {
+  return path.join(process.cwd(), '.build', jobId);
+ }
 }
 
 export default Builder;
