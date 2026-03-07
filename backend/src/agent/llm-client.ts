@@ -43,14 +43,15 @@ export class LLMClient {
   private openrouterApiKey: string;
   private models: string[];
 
-  // Model tiers for smart routing
+  // Model tiers for smart routing (Updated March 2026 Value Frontier)
   private readonly MODEL_TIERS = {
-    premium: 'anthropic/claude-3.5-sonnet',                       // Highest quality for complex/high-budget
-    fast: 'google/gemini-2.0-flash-001',                         // High speed, low cost, large context
-    grok: 'x-ai/grok-4.1-fast',                                  // Latest Grok 4.1 Fast
-    balanced: 'deepseek/deepseek-chat',                          // Value King: frontier reasoning at low cost
-    coder: 'qwen/qwen-2.5-coder-32b-instruct',                   // Specialized for pure code generation
-    budget: 'openai/gpt-4o-mini',                                // Very cheap, reliable
+    premium: 'anthropic/claude-3.5-sonnet',                       // Gold standard reasoning
+    fast: 'google/gemini-2.0-flash-001',                         // Fastest 2M context
+    grok: 'x-ai/grok-4.1-fast',                                  // High-speed reasoning
+    balanced: 'deepseek/deepseek-chat',                          // Value King (V3.2 Speciale level)
+    proValue: 'minimax/minimax-01',                              // Opus-level coding at 1/20th cost
+    coder: 'qwen/qwen-2.5-coder-32b-instruct',                   // Pure code specialist
+    budget: 'openai/gpt-4o-mini',                                // Ultra-reliable small model
   };
 
   constructor(config: {
@@ -58,11 +59,11 @@ export class LLMClient {
     models?: string[];
   }) {
     this.openrouterApiKey = config.openrouterApiKey;
-    // Optimized fallback chain: fast → grok → balanced → premium
+    // Fallback chain optimized for Value + Speed
     this.models = config.models || [
       this.MODEL_TIERS.fast,
-      this.MODEL_TIERS.grok,
       this.MODEL_TIERS.balanced,
+      this.MODEL_TIERS.proValue,
       this.MODEL_TIERS.premium,
     ];
   }
@@ -128,10 +129,10 @@ export class LLMClient {
     
     // Medium budget ($2-$5):
     if (budget >= 2) {
-      // Complex jobs get premium model
+      // Complex jobs get Pro-Value model (MiniMax M2.5) if premium is too expensive
       if (complexity === 'complex') {
-        logger.info(`Medium budget ($${budget}), complex job, using premium model`);
-        return this.MODEL_TIERS.premium;
+        logger.info(`Medium budget ($${budget}), complex job, using proValue model (Opus-level logic)`);
+        return this.MODEL_TIERS.proValue;
       }
       // Technical medium jobs use specialized coder
       if (isTechnical) {
@@ -144,9 +145,9 @@ export class LLMClient {
     }
     
     // Low budget (<$2): Prioritize speed and cost
-    if (isTechnical && complexity !== 'simple') {
-      logger.info(`Low budget ($${budget}), technical job, using coder model`);
-      return this.MODEL_TIERS.coder;
+    if (complexity === 'complex') {
+      logger.info(`Low budget ($${budget}), complex job, using balanced model (DeepSeek)`);
+      return this.MODEL_TIERS.balanced;
     }
 
     // Default to fast/free model for low budget simple/medium jobs

@@ -455,7 +455,7 @@ export default function Dashboard() {
             PROMETHEUS_CORE_OS
           </div>
           <div className="hidden md:block opacity-50">
-            ENGINES: GROK_4.1, DEEPSEEK_V3, QWEN_2.5, CLAUDE_3.5
+            ENGINES: GROK_4.1, DEEPSEEK_V3, MINIMAX_M2.5, QWEN_2.5, CLAUDE_3.5
           </div>
         </div>
         

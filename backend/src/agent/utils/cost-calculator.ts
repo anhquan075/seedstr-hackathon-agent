@@ -24,8 +24,11 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
   'meta-llama/llama-3.1-405b-instruct': { input: 2.0, output: 2.0 },
   
   // DeepSeek (Value King)
-  'deepseek/deepseek-chat': { input: 0.14, output: 0.28 },
+  'deepseek/deepseek-chat': { input: 0.25, output: 0.38 },
   'deepseek/deepseek-reasoner': { input: 0.55, output: 2.19 },
+
+  // MiniMax (Opus-level coding at low cost)
+  'minimax/minimax-01': { input: 0.3, output: 1.1 },
 
   // Qwen (Coding Specialist)
   'qwen/qwen-2.5-coder-32b-instruct': { input: 0.07, output: 0.14 },
