@@ -8,306 +8,278 @@ import type { AgentConfig } from '../types.js';
 import { hostname } from 'os';
 
 export class SeedstrPoller {
- private isRunning = false;
- private pollInterval: NodeJS.Timeout | null = null;
- private processedJobIds = new Set<string>();
- private apiClient: SeedstrAPIClient;
- private validator: JobEligibilityValidator;
- private dbAvailable = false;
- private instanceId: string;
- constructor(
-  private bus: EventBus,
-  private config: AgentConfig,
-  private capabilities: AgentCapabilities
- ) {
-  this.apiClient = new SeedstrAPIClient(config.seedstrApiKey || config.apiKey);
-  const apiKeyUsed = config.seedstrApiKey ? 'seedstrApiKey' : config.apiKey ? 'apiKey' : 'none';
-  const apiKeyStatus = config.seedstrApiKey || config.apiKey ? ' Set' : ' MISSING';
-  logger.info(`[SeedstrPoller] API Key source: ${apiKeyUsed} (${apiKeyStatus})`);
-  if (!config.seedstrApiKey && !config.apiKey) {
-   logger.warn('[SeedstrPoller]  WARNING: No API key configured! API calls will fail.');
-  }
-  this.validator = new JobEligibilityValidator();
-  this.instanceId = this.generateInstanceId();
-  logger.info(`[SeedstrPoller] Initialized with instance ID: ${this.instanceId}`);
-  
-  // Check if database is available
-  this.dbAvailable = database.isAvailable();
-  if (this.dbAvailable) {
-   logger.info('[SeedstrPoller] Using PostgreSQL for job persistence');
-   this.loadJobsFromDatabase();
-  } else {
-   logger.info('[SeedstrPoller] Database not available, using in-memory + config');
-   this.loadPersistentJobs();
-  }
- }
-
- /**
-  * Generate a unique instance ID based on hostname and process ID
-  */
- private generateInstanceId(): string {
-  const host = hostname();
-  const pid = process.pid;
-  return `${host}-${pid}`;
- }
-
- private async loadJobsFromDatabase(): Promise<void> {
-  try {
-   const jobs = await database.getRecentJobs(1000);
-   jobs.forEach(job => {
-    // Only skip jobs that are currently processing or already completed
-    // Failed jobs are eligible for retry
-    if (job.status === 'processing' || job.status === 'completed') {
-     this.processedJobIds.add(job.job_id);
+  private isRunning = false;
+  private pollInterval: NodeJS.Timeout | null = null;
+  private processedJobIds = new Set<string>();
+  private apiClient: SeedstrAPIClient;
+  private validator: JobEligibilityValidator;
+  private dbAvailable = false;
+  private instanceId: string;
+  constructor(
+    private bus: EventBus,
+    private config: AgentConfig,
+    private capabilities: AgentCapabilities
+  ) {
+    this.apiClient = new SeedstrAPIClient(config.seedstrApiKey || config.apiKey);
+    const apiKeyUsed = config.seedstrApiKey ? 'seedstrApiKey' : config.apiKey ? 'apiKey' : 'none';
+    const apiKeyStatus = config.seedstrApiKey || config.apiKey ? '✓ Set' : '✗ Missing';
+    logger.info(`[SeedstrPoller] API Key source: ${apiKeyUsed} (${apiKeyStatus})`);
+    if (!config.seedstrApiKey && !config.apiKey) {
+      logger.warn('[SeedstrPoller] ⚠️  WARNING: No API key configured! API calls will fail.');
     }
-   });
-   logger.info(`[SeedstrPoller] Loaded ${this.processedJobIds.size} processing/completed jobs from database (will skip). Failed jobs will be retried.`);
-   
-   // Prune old jobs to keep only last 1000
-   await database.pruneOldJobs(1000);
-  } catch (error) {
-   logger.error('[SeedstrPoller] Failed to load jobs from database:', error);
-   this.loadPersistentJobs();
-  }
- }
-
- private loadPersistentJobs(): void {
-  const persistentJobs = (configManager.get('processedJobs') || []) as string[];
-  persistentJobs.forEach((id) => {
-   this.processedJobIds.add(id);
-  });
-  logger.info(`[SeedstrPoller] Loaded ${this.processedJobIds.size} persistent jobs`);
- }
-
- start(): void {
-  if (this.isRunning) {
-   logger.warn('[SeedstrPoller] Already running');
-   return;
-  }
-
-  this.isRunning = true;
-  logger.info('[SeedstrPoller] Started');
-
-  this.poll().catch((error) => {
-   logger.error('[SeedstrPoller] Initial poll error:', error);
-  });
-
-  this.scheduleNextPoll();
- }
-
- stop(): void {
-  if (!this.isRunning) return;
-
-  this.isRunning = false;
-  if (this.pollInterval) {
-   clearInterval(this.pollInterval);
-   this.pollInterval = null;
-  }
-  logger.info('[SeedstrPoller] Stopped');
- }
-
- pause(): void {
-  if (!this.isRunning) {
-   logger.warn('[SeedstrPoller] Not running, cannot pause');
-   return;
-  }
-
-  if (this.pollInterval) {
-   clearInterval(this.pollInterval);
-   this.pollInterval = null;
-   logger.info('[SeedstrPoller] Polling paused');
-  }
- }
-
- resume(): void {
-  if (!this.isRunning) {
-   logger.warn('[SeedstrPoller] Not running, cannot resume');
-   return;
-  }
-
-  if (this.pollInterval) {
-   logger.warn('[SeedstrPoller] Already polling');
-   return;
-  }
-
-  this.scheduleNextPoll();
-  logger.info('[SeedstrPoller] Polling resumed');
- }
-
- isPaused(): boolean {
-  return this.isRunning && !this.pollInterval;
- }
-
- markJobProcessed(jobId: string): void {
-  this.processedJobIds.add(jobId);
-  
-  // Persist to database if available
-  if (this.dbAvailable) {
-   database.markJobProcessed(jobId, 'completed').catch(err => {
-    logger.error('[SeedstrPoller] Failed to persist to DB:', err);
-    configManager.addProcessedJob(jobId);
-   });
-  } else {
-   configManager.addProcessedJob(jobId);
-  }
-  
-  // Keep in-memory set aligned with persistent retention limit.
-  if (this.processedJobIds.size > 1000) {
-   const oldestId = Array.from(this.processedJobIds)[0];
-   this.processedJobIds.delete(oldestId);
-  }
-  logger.info(`[SeedstrPoller] Marked job ${jobId} as processed`);
- }
-
- /**
-  * Atomically claim a job in the database with lease-based expiration
-  * Returns true if successfully claimed, false if already being processed
-  */
- async tryClaimJob(jobId: string): Promise<boolean> {
-  if (this.dbAvailable) {
-   const claimed = await database.claimJob(jobId, this.instanceId, 30000);
-   if (claimed) {
-    this.processedJobIds.add(jobId);
-    logger.info(`[SeedstrPoller] Claimed job ${jobId} via database (instance: ${this.instanceId})`);
-    return true;
-   }
-   return false;
-  }
-  
-  // Fallback to in-memory check
-  if (this.processedJobIds.has(jobId)) {
-   return false;
-  }
-  this.processedJobIds.add(jobId);
-  return true;
- }
-
- clearProcessedJobs(): void {
-  this.processedJobIds.clear();
-  logger.info('[SeedstrPoller] Cleared processed jobs set');
- }
-
- getProcessedJobCount(): number {
-  return this.processedJobIds.size;
- }
-
- private scheduleNextPoll(): void {
-  const minInterval = 5000;
-  const maxInterval = 10000;
-  const interval = minInterval + Math.random() * (maxInterval - minInterval);
-
-  this.pollInterval = setInterval(() => {
-   if (this.isRunning) {
-    this.poll().catch((error) => {
-     logger.error('[SeedstrPoller] Poll error:', error);
-    });
-   }
-  }, Math.round(interval));
-
-  logger.info(
-   `[SeedstrPoller] Next poll scheduled in ${Math.round(interval)}ms`
-  );
- }
- private async poll(): Promise<void> {
-  try {
-   const now = Date.now();
-
-   this.bus.emit('job_tick', { timestamp: now });
-
-   const rateLimitReset = this.apiClient.getRateLimitReset();
-   if (rateLimitReset > now) {
-    const waitSeconds = Math.ceil((rateLimitReset - now) / 1000);
-    logger.info(
-     `[SeedstrPoller] Rate limited. Waiting ${waitSeconds}s before retry`
-    );
-    return;
-   }
-
-   logger.info(`[SeedstrPoller] Starting poll...`);
-   const response = await this.apiClient.listJobsV2(50, 0);
-   logger.info(`[SeedstrPoller] Fetched ${response.jobs.length} jobs from Seedstr API`);
-
-   for (const job of response.jobs) {
-    // Skip jobs that have already been completed to prevent re-execution
-    if (this.processedJobIds.has(job.id)) {
-     logger.info(`[SeedstrPoller] Job ${job.id} already completed, skipping re-execution`);
-     continue;
-    }
+    this.validator = new JobEligibilityValidator();
+    this.instanceId = this.generateInstanceId();
+    logger.info(`[SeedstrPoller] Initialized with instance ID: ${this.instanceId}`);
     
-    // Use atomic database claim to prevent race conditions across instances
+    // Check if database is available
+    this.dbAvailable = database.isAvailable();
     if (this.dbAvailable) {
-     const claimed = await this.tryClaimJob(job.id);
-     if (!claimed) {
-      logger.info(`[SeedstrPoller] Job ${job.id} already claimed by another instance, skipping`);
-      continue;
-     }
+      logger.info('[SeedstrPoller] Using PostgreSQL for job persistence');
+      this.loadJobsFromDatabase();
     } else {
-     // Fallback to in-memory check
-     if (this.processedJobIds.has(job.id)) {
-      logger.info(`[SeedstrPoller] Skipping already-processed job ${job.id}`);
-      continue;
-     }
-     this.processedJobIds.add(job.id);
+      logger.info('[SeedstrPoller] Database not available, using in-memory + config');
+      this.loadPersistentJobs();
+    }
+  }
+
+  /**
+   * Generate a unique instance ID based on hostname and process ID
+   */
+  private generateInstanceId(): string {
+    const host = hostname();
+    const pid = process.pid;
+    return `${host}-${pid}`;
+  }
+
+  private async loadJobsFromDatabase(): Promise<void> {
+    try {
+      const jobs = await database.getRecentJobs(1000);
+      jobs.forEach(job => {
+        // Only skip jobs that are currently processing or already completed
+        // Failed jobs are eligible for retry
+        if (job.status === 'processing' || job.status === 'completed') {
+          this.processedJobIds.add(job.job_id);
+        }
+      });
+      logger.info(`[SeedstrPoller] Loaded ${this.processedJobIds.size} processing/completed jobs from database (will skip). Failed jobs will be retried.`);
+      
+      // Prune old jobs to keep only last 1000
+      await database.pruneOldJobs(1000);
+    } catch (error) {
+      logger.error('[SeedstrPoller] Failed to load jobs from database:', error);
+      this.loadPersistentJobs();
+    }
+  }
+
+  private loadPersistentJobs(): void {
+    const persistentJobs = (configManager.get('processedJobs') || []) as string[];
+    persistentJobs.forEach((id) => {
+      this.processedJobIds.add(id);
+    });
+    logger.info(`[SeedstrPoller] Loaded ${this.processedJobIds.size} persistent jobs`);
+  }
+
+  start(): void {
+    if (this.isRunning) {
+      logger.warn('[SeedstrPoller] Already running');
+      return;
     }
 
-    const validationResult = this.validator.validate(job, this.capabilities);
-    this.validator.logValidation(job.id, validationResult);
+    this.isRunning = true;
+    logger.info('[SeedstrPoller] Started');
+
+    this.poll().catch((error) => {
+      logger.error('[SeedstrPoller] Initial poll error:', error);
+    });
+
+    this.scheduleNextPoll();
+  }
+
+  stop(): void {
+    if (!this.isRunning) return;
+
+    this.isRunning = false;
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
+    logger.info('[SeedstrPoller] Stopped');
+  }
+
+  pause(): void {
+    if (!this.isRunning) {
+      logger.warn('[SeedstrPoller] Not running, cannot pause');
+      return;
+    }
+
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+      logger.info('[SeedstrPoller] Polling paused');
+    }
+  }
+
+  resume(): void {
+    if (!this.isRunning) {
+      logger.warn('[SeedstrPoller] Not running, cannot resume');
+      return;
+    }
+
+    if (this.pollInterval) {
+      logger.warn('[SeedstrPoller] Already polling');
+      return;
+    }
+
+    this.scheduleNextPoll();
+    logger.info('[SeedstrPoller] Polling resumed');
+  }
+
+  isPaused(): boolean {
+    return this.isRunning && !this.pollInterval;
+  }
+
+  markJobProcessed(jobId: string): void {
+    this.processedJobIds.add(jobId);
     
-    // Log rejection reasons at INFO level (not debug) so they're visible in production
-    if (!validationResult.eligible) {
-     logger.info(`[SeedstrPoller] Job ${job.id} REJECTED: ${validationResult.reason || 'unknown reason'}`);
-     continue;
+    // Persist to database if available
+    if (this.dbAvailable) {
+      database.markJobProcessed(jobId, 'completed').catch(err => {
+        logger.error('[SeedstrPoller] Failed to persist to DB:', err);
+        configManager.addProcessedJob(jobId);
+      });
+    } else {
+      configManager.addProcessedJob(jobId);
     }
+    
+    // Keep in-memory set aligned with persistent retention limit.
+    if (this.processedJobIds.size > 1000) {
+      const oldestId = Array.from(this.processedJobIds)[0];
+      this.processedJobIds.delete(oldestId);
+    }
+    logger.info(`[SeedstrPoller] Marked job ${jobId} as processed`);
+  }
 
+  /**
+   * Atomically claim a job in the database with lease-based expiration
+   * Returns true if successfully claimed, false if already being processed
+   */
+  async tryClaimJob(jobId: string): Promise<boolean> {
+    if (this.dbAvailable) {
+      const claimed = await database.claimJob(jobId, this.instanceId, 30000);
+      if (claimed) {
+        this.processedJobIds.add(jobId);
+        logger.info(`[SeedstrPoller] Claimed job ${jobId} via database (instance: ${this.instanceId})`);
+        return true;
+      }
+      return false;
+    }
+    
+    // Fallback to in-memory check
+    if (this.processedJobIds.has(jobId)) {
+      return false;
+    }
+    this.processedJobIds.add(jobId);
+    return true;
+  }
+
+  clearProcessedJobs(): void {
+    this.processedJobIds.clear();
+    logger.info('[SeedstrPoller] Cleared processed jobs set');
+  }
+
+  getProcessedJobCount(): number {
+    return this.processedJobIds.size;
+  }
+
+  private scheduleNextPoll(): void {
+    const minInterval = 5000;
+    const maxInterval = 10000;
+    const interval = minInterval + Math.random() * (maxInterval - minInterval);
+
+    this.pollInterval = setInterval(() => {
+      if (this.isRunning) {
+        this.poll().catch((error) => {
+          logger.error('[SeedstrPoller] Poll error:', error);
+        });
+      }
+    }, Math.round(interval));
 
     logger.info(
-     `[SeedstrPoller] Valid job found: ${job.id} (${job.jobType}, budget: ${
-      job.jobType === 'SWARM' ? job.budgetPerAgent : job.budget
-     })`
+      `[SeedstrPoller] Next poll scheduled in ${Math.round(interval)}ms`
     );
-
-    // Deep search for prompt text to handle API variations (Nexus-Forge style)
-    const extractedPrompt = this.deepFindPrompt(job) || job.prompt;
-
-    this.bus.emit('job_received', {
-     id: job.id,
-     prompt: extractedPrompt,
-     budget: job.jobType === 'SWARM' ? (job.budgetPerAgent || 0) : job.budget,
-     timestamp: now,
-     jobType: job.jobType,
-     skills: job.requiredSkills || [],
-     description: job.description,
-     responseType: job.responseType,
-    });
-   }
-  } catch (error) {
-   logger.error('[SeedstrPoller] Poll error:', error instanceof Error ? error.message : String(error));
   }
- }
+  private async poll(): Promise<void> {
+    try {
+      const now = Date.now();
 
- /**
-  * Deep-search for prompt text in any JSON structure (Nexus-Forge hardening)
-  */
- private deepFindPrompt(payload: any): string | undefined {
-  if (!payload || typeof payload !== 'object') return undefined;
+      this.bus.emit('job_tick', { timestamp: now });
 
-  const candidateKeys = ['prompt', 'mysteryPrompt', 'challengePrompt', 'text', 'description'];
-  for (const key of candidateKeys) {
-   const value = payload[key];
-   if (typeof value === 'string' && value.trim().length > 0) {
-    return value.trim();
-   }
+      const rateLimitReset = this.apiClient.getRateLimitReset();
+      if (rateLimitReset > now) {
+        const waitSeconds = Math.ceil((rateLimitReset - now) / 1000);
+        logger.info(
+          `[SeedstrPoller] Rate limited. Waiting ${waitSeconds}s before retry`
+        );
+        return;
+      }
+
+      logger.info(`[SeedstrPoller] Starting poll...`);
+      const response = await this.apiClient.listJobs(50, 0);
+      logger.info(`[SeedstrPoller] Fetched ${response.jobs.length} jobs from Seedstr API`);
+
+      for (const job of response.jobs) {
+        // Skip jobs that have already been completed to prevent re-execution
+        if (this.processedJobIds.has(job.id)) {
+          logger.info(`[SeedstrPoller] Job ${job.id} already completed, skipping re-execution`);
+          continue;
+        }
+        
+        // Use atomic database claim to prevent race conditions across instances
+        if (this.dbAvailable) {
+          const claimed = await this.tryClaimJob(job.id);
+          if (!claimed) {
+            logger.info(`[SeedstrPoller] Job ${job.id} already claimed by another instance, skipping`);
+            continue;
+          }
+        } else {
+          // Fallback to in-memory check
+          if (this.processedJobIds.has(job.id)) {
+            logger.info(`[SeedstrPoller] Skipping already-processed job ${job.id}`);
+            continue;
+          }
+          this.processedJobIds.add(job.id);
+        }
+
+        const validationResult = this.validator.validate(job, this.capabilities);
+        this.validator.logValidation(job.id, validationResult);
+        
+        // Log rejection reasons at INFO level (not debug) so they're visible in production
+        if (!validationResult.eligible) {
+          logger.info(`[SeedstrPoller] Job ${job.id} REJECTED: ${validationResult.reason || 'unknown reason'}`);
+          continue;
+        }
+
+
+        logger.info(
+          `[SeedstrPoller] Valid job found: ${job.id} (${job.jobType}, budget: ${
+            job.jobType === 'SWARM' ? job.budgetPerAgent : job.budget
+          })`
+        );
+
+        this.bus.emit('job_received', {
+          id: job.id,
+          prompt: job.prompt,
+          budget: job.jobType === 'SWARM' ? (job.budgetPerAgent || 0) : job.budget,
+          timestamp: now,
+          jobType: job.jobType,
+          skills: job.requiredSkills || [],
+          description: job.description,
+          responseType: job.responseType,
+        });
+      }
+    } catch (error) {
+      logger.error('[SeedstrPoller] Poll error:', error instanceof Error ? error.message : String(error));
+    }
   }
-
-  // Recursive search
-  for (const value of Object.values(payload)) {
-   if (typeof value === 'object') {
-    const found = this.deepFindPrompt(value);
-    if (found) return found;
-   }
-  }
-
-  return undefined;
- }
 }
 export default SeedstrPoller;
