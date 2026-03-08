@@ -79,8 +79,14 @@ export function getFrontendGenerationPrompt(jobPrompt: string): string {
  const selectedTemplate = selectTemplate(jobPrompt);
  const selectedDesignSystem = selectDesignSystem(jobPrompt);
  
- return `### TASK SPECIFICATION:
+ return `### RECURSIVE CONTEXTUALIZATION:
+Analyze the following mystery prompt. Identify the core 'Vibe', 'Target Audience', and 'Must-Have Features'. Describe your architectural plan before writing a single line of code.
+
+### MYSTERY PROMPT:
 ${jobPrompt}
+
+### DESIGN-FIRST "VIBE CODING":
+You are a world-class UI/UX designer. Implement a responsive, high-fidelity interface using Tailwind CSS (via CDN) and Lucide icons. Focus on 'Bento Grid' layouts, subtle animations, and accessible color palettes. Avoid 'AI-slop' (generic, unstyled HTML).
 
 ### ARCHITECTURAL DIRECTIVE:
 Generate a complete, production-ready web application using the '${selectedDesignSystem}' design system.
@@ -102,6 +108,9 @@ Generate a complete, production-ready web application using the '${selectedDesig
 1. **HTML Structure**: Semantic tags, meta tags, and correct file links.
 2. **CSS Styling**: Variable-driven, responsive, and organized.
 3. **JS Logic**: Error-handled, modular, and performant.
+
+### SELF-CORRECTION LOOP:
+After generating the code, simulate an AI Judge review based on: Functionality (Is it a working .zip?), Design (Is it visually impressive?), and Speed (Is it lightweight?). If any score is <8/10, refine the code once before final submission.
 
 **CRITICAL**: Link CSS with <link rel="stylesheet" href="styles.css"> and JS with <script src="script.js" defer></script>.
 Wait for tool feedback after every file creation. Do not assume success.`;
