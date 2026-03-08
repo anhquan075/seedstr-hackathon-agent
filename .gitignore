@@ -67,3 +67,6 @@ out/
 
 # Windows batch files
 *.bat
+
+# Hackathon guides
+guide/
