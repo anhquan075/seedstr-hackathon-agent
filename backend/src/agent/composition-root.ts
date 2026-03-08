@@ -2,11 +2,12 @@ import { SeedstrAPIClient } from './api-client.js';
 import { EventBus } from './core/event-bus.js';
 import { Orchestrator } from './core/orchestrator.js';
 import { Watcher } from './modules/watcher.js';
-import { SeedstrPoller } from './modules/poller.ts';
+import { SeedstrPoller } from './modules/poller.js';
 import { Brain } from './modules/brain.js';
 import { Builder } from './modules/builder.js';
 import { Packer } from './modules/packer.js';
-import { Bridge } from './core/bridge.js';
+import { Bridge } from './modules/bridge.js';
+
 import { logger } from './logger.js';
 import { SSEServer } from './sse-server.js';
 import type { AgentConfig } from './types.js';
